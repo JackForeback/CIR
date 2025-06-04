@@ -1,1 +1,2 @@
 # CIR
+Class Independent Regularizer
