@@ -6,7 +6,7 @@ from sample_plotting import plot_samples
 
 # Set variables
 num_classes = 3
-num_training_steps = 100
+num_training_steps = 200
 input_dim = 2
 samples_per_class = 100
 train_ratio = 0.7
@@ -63,7 +63,7 @@ for i in Y_test:
         test_samples_per_class[2] += 1
 
 # Dict to store average classification accuracy at each step
-accuracy_dict = {i: [0] * 100 for i in range(num_classes)}
+accuracy_dict = {i: [0] * num_training_steps for i in range(num_classes)}
 
 # Function to track the totalcnumber of accurate classifications at each step
 def track_accuracy(predictions, current_step):
