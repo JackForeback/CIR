@@ -23,5 +23,5 @@ def plot_samples(data, num_classes):
     plt.grid(True)
     plt.legend()
     plt.tight_layout()
-    plt.savefig("tests/test3/sample_plot.png")
+    plt.savefig("tests/test2/sample_plot.png")
     plt.close()

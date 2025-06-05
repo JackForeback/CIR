@@ -7,6 +7,7 @@ from sample_plotting import plot_samples
 # Set variables
 num_classes = 3
 num_training_steps = 200
+num_seeds = 100
 input_dim = 2
 samples_per_class = 100
 train_ratio = 0.7
@@ -89,7 +90,7 @@ class LinearClassifier(nn.Module):
 
 
 # Model Instantiation. Set seeds for 100 trials with random weights
-for i in range(100):
+for i in range(num_seeds):
     torch.manual_seed(i)
     model = LinearClassifier(input_dim, num_classes)
 
@@ -112,10 +113,10 @@ for i in range(100):
             track_accuracy(y_pred, j)
 
 # Divides the number of correct classifications at each step location in the list
-# by the total number of possible correct classifications over the # of training steps
-for i in range(3):
-    div = test_samples_per_class[i]*num_training_steps
-    for j in range(len(accuracy_dict[i])):
+# by the total number of possible correct classifications over the total number of training steps
+for i in range(num_classes):
+    div = test_samples_per_class[i]*num_seeds
+    for j in range(num_training_steps):
         accuracy_dict[i][j] /= div
 
 # Print means and covariance to be piped into file with images to identify the distributions used in each test
@@ -132,5 +133,5 @@ plt.title("Per-Class Test Accuracy")
 plt.legend()
 plt.grid(True)
 plt.tight_layout()
-plt.savefig("tests/test3/accuracy_graph.png")
+plt.savefig("tests/test2/accuracy_graph.png")
 plt.close()
