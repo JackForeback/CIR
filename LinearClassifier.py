@@ -3,6 +3,7 @@ import torch.nn as nn
 import torch.optim as optim
 import matplotlib.pyplot as plt
 from sample_plotting import plot_samples
+import math as m
 
 # Set variables
 num_classes = 3
@@ -13,15 +14,22 @@ samples_per_class = 100
 train_ratio = 0.7
 total_samples = samples_per_class * num_classes
 
+theta = 45
+
+rotation = torch.tensor([[m.cos(theta), -m.sin(theta)], [m.sin(theta), m.cos(theta)]])
+
 # Set means for 2D Gaussians
-means = [torch.tensor([5.0, 0.0]),
-         torch.tensor([-5.0, 0.0]),
-         torch.tensor([0.0, 15.0])]
+means = [torch.tensor([0.0, (m.sqrt(3)/2)*10]),
+         torch.tensor([-5.0, -(m.sqrt(3)/4)*10]),
+         torch.tensor([5.0, -(m.sqrt(3)/4)*10])]
+
+for i in range(len(means)): 
+    means[i] = torch.matmul(rotation, means[i])
 
 # Set covariance matrices. Establishes spread & direction of probability cluster
 covs = [torch.tensor([[1.0, 0.0], [0.0, 1.0]]),
         torch.tensor([[1.0, 0.0], [0.0, 1.0]]),
-        torch.tensor([[2.0, 0.0], [0.0, 2.0]])]
+        torch.tensor([[1.0, 0.0], [0.0, 1.0]])]
 
 # Lists for Input and Output
 X, Y = [], []
@@ -133,5 +141,5 @@ plt.title("Per-Class Test Accuracy")
 plt.legend()
 plt.grid(True)
 plt.tight_layout()
-plt.savefig("tests/test2/accuracy_graph.png")
+plt.savefig("tests/test9/accuracy_graph.png")
 plt.close()
