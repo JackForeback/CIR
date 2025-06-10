@@ -1,8 +1,10 @@
 import torch
 import torch.nn as nn
 import torch.optim as optim
-import matplotlib.pyplot as plt
-from sample_plotting import plot_samples
+
+from functions import plot_samples, count_samples, track_accuracy, plot_accuracy
+from models import LinearClassifier
+
 import math as m
 
 # Set variables
@@ -10,21 +12,22 @@ num_classes = 3
 num_training_steps = 200
 num_seeds = 100
 input_dim = 2
-samples_per_class = 100
+samples_per_class = 10000
 train_ratio = 0.7
 total_samples = samples_per_class * num_classes
 
-theta = 45
-
-rotation = torch.tensor([[m.cos(theta), -m.sin(theta)], [m.sin(theta), m.cos(theta)]])
+# Generate rotation matrix
+# theta = 45
+# rotation = torch.tensor([[m.cos(theta), -m.sin(theta)], [m.sin(theta), m.cos(theta)]])
 
 # Set means for 2D Gaussians
 means = [torch.tensor([0.0, (m.sqrt(3)/2)*10]),
          torch.tensor([-5.0, -(m.sqrt(3)/4)*10]),
          torch.tensor([5.0, -(m.sqrt(3)/4)*10])]
 
-for i in range(len(means)): 
-    means[i] = torch.matmul(rotation, means[i])
+# # Rotate means
+# for i in range(len(means)): 
+#     means[i] = torch.matmul(rotation, means[i])
 
 # Set covariance matrices. Establishes spread & direction of probability cluster
 covs = [torch.tensor([[1.0, 0.0], [0.0, 1.0]]),
@@ -61,41 +64,13 @@ split_idx = int(train_ratio * total_samples)
 X_train, Y_train = X[:split_idx], Y[:split_idx]
 X_test, Y_test = X[split_idx:], Y[split_idx:]
 
-# Calculate number of samples from each class in the test set
-test_samples_per_class = [0, 0, 0]
-for i in Y_test:
-    if (torch.equal(i, classes[0])):
-        test_samples_per_class[0] += 1
-    elif (torch.equal(i, classes[1])):
-        test_samples_per_class[1] += 1
-    else:
-        test_samples_per_class[2] += 1
+# Calculate number of samples from each class in the test & train set
+train_samples = count_samples(Y_train, classes)
+test_samples = count_samples(Y_test, classes)
 
 # Dict to store average classification accuracy at each step
-accuracy_dict = {i: [0] * num_training_steps for i in range(num_classes)}
-
-# Function to track the totalcnumber of accurate classifications at each step
-def track_accuracy(predictions, current_step):
-    tmp_arr = [0, 0, 0]
-    # Check how many correct classifications for each class
-    for i in range(len(predictions)):
-        idx = torch.argmax(predictions[i])
-        if (idx == torch.argmax(Y_test[i])):
-            tmp_arr[idx] += 1
-
-    # Add number of correctly clasified test data to correct step spot in accuracy_dict
-    for i in range(num_classes):
-        accuracy_dict[i][j] += tmp_arr[i]
-
-# Model definition
-class LinearClassifier(nn.Module):
-    def __init__(self, input_dim: int, num_classes: int):
-        super().__init__()
-        self.linear = nn.Linear(input_dim, num_classes)
-
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        return self.linear(x)
-
+train_dict = {i: [0] * num_training_steps for i in range(num_classes)}
+test_dict = {i: [0] * num_training_steps for i in range(num_classes)}
 
 # Model Instantiation. Set seeds for 100 trials with random weights
 for i in range(num_seeds):
@@ -109,6 +84,7 @@ for i in range(num_seeds):
     # Training loop
     for j in range(num_training_steps):
         y_pred = model(X_train)
+        track_accuracy(y_pred, j, train_dict, Y_train, num_classes)
         loss = criterion(y_pred, Y_train)
 
         optimizer.zero_grad()
@@ -118,28 +94,18 @@ for i in range(num_seeds):
         # Test loop
         with torch.no_grad():
             y_pred = model(X_test)
-            track_accuracy(y_pred, j)
+            track_accuracy(y_pred, j, test_dict, Y_test, num_classes)
 
 # Divides the number of correct classifications at each step location in the list
 # by the total number of possible correct classifications over the total number of training steps
 for i in range(num_classes):
-    div = test_samples_per_class[i]*num_seeds
+    train_div = train_samples[i]*num_seeds
+    test_div = test_samples[i]*num_seeds
     for j in range(num_training_steps):
-        accuracy_dict[i][j] /= div
+        train_dict[i][j] /= train_div
+        test_dict[i][j] /= test_div
+
+plot_accuracy(train_dict, test_dict)
 
 # Print means and covariance to be piped into file with images to identify the distributions used in each test
 print("Means:", means, "\n", "Covs:", covs)
-
-# Accuracy plotting
-plt.figure(figsize=(10, 6))
-for class_id, accuracy_list in accuracy_dict.items():
-    plt.plot(accuracy_list, label=f"Class {class_id}", linestyle='-')
-
-plt.xlabel("Training Step")
-plt.ylabel("Accuracy")
-plt.title("Per-Class Test Accuracy")
-plt.legend()
-plt.grid(True)
-plt.tight_layout()
-plt.savefig("tests/test9/accuracy_graph.png")
-plt.close()
