@@ -7,7 +7,7 @@ from models import LinearClassifier
 
 import math as m
 
-# Set variables
+# Set variables & seed for reproducible data generation
 num_classes = 3
 num_training_steps = 200
 num_seeds = 100
@@ -15,19 +15,16 @@ input_dim = 2
 samples_per_class = 10000
 train_ratio = 0.7
 total_samples = samples_per_class * num_classes
+torch.manual_seed(42)
 
-# Generate rotation matrix
-# theta = 45
-# rotation = torch.tensor([[m.cos(theta), -m.sin(theta)], [m.sin(theta), m.cos(theta)]])
+# Sets center of clusers, equidistant from the origin
+height = 5
+coord = m.sqrt((height**2)/2)
 
 # Set means for 2D Gaussians
-means = [torch.tensor([0.0, (m.sqrt(3)/2)*10]),
-         torch.tensor([-5.0, -(m.sqrt(3)/4)*10]),
-         torch.tensor([5.0, -(m.sqrt(3)/4)*10])]
-
-# # Rotate means
-# for i in range(len(means)): 
-#     means[i] = torch.matmul(rotation, means[i])
+means = [torch.tensor([0.0, height]),
+         torch.tensor([-coord, -coord]),
+         torch.tensor([coord, -coord])]
 
 # Set covariance matrices. Establishes spread & direction of probability cluster
 covs = [torch.tensor([[1.0, 0.0], [0.0, 1.0]]),
@@ -107,5 +104,5 @@ for i in range(num_classes):
 
 plot_accuracy(train_dict, test_dict)
 
-# Print means and covariance to be piped into file with images to identify the distributions used in each test
+# Print means and covariance to be piped into file with images to verify distributions used in each test
 print("Means:", means, "\n", "Covs:", covs)

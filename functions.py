@@ -1,7 +1,8 @@
 import torch
 import matplotlib.pyplot as plt
 
-
+jobname="base"
+path="/users/jforebac/CIR"
 # Return how many samples are in each class
 def count_samples(data, key):
     tmp = [0, 0, 0]
@@ -54,7 +55,7 @@ def plot_samples(data, num_classes):
     plt.grid(True)
     plt.legend()
     plt.tight_layout()
-    plt.savefig("tests/test8.1/sample_plot.png")
+    plt.savefig(f"{path}/cause-tests/{jobname}/sample_plot.png")
     plt.close()
 
 
@@ -89,5 +90,5 @@ def plot_accuracy(train, test):
     plt.legend()
     plt.grid(True)
     plt.tight_layout()
-    plt.savefig("tests/test8.1/accuracy_graph.png")
+    plt.savefig(f"{path}/cause-tests/{jobname}/accuracy_graph.png")
     plt.close()
