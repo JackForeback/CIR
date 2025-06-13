@@ -1,0 +1,9 @@
+## SLURM PROLOG ###############################################################
+##    Job ID : 11714996
+##  Job Name : 1-2var
+##  Nodelist : node2343
+##      CPUs : 
+##   Mem/CPU : 2800 MB
+## Directory : /oscar/home/jforebac/CIR
+##   Job Started : Wed Jun 11 04:25:38 PM EDT 2025
+###############################################################################
