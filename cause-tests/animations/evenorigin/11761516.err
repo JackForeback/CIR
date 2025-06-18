@@ -1,4 +1,0 @@
-/users/jforebac/CIR/venv/lib64/python3.9/site-packages/networkx/utils/backends.py:135: RuntimeWarning: networkx backend defined more than once: nx-loopback
-  backends.update(_get_backends("networkx.backends"))
-/var/spool/slurmd/job11761516/slurm_script: line 20: 1764022 Killed                  python LinearClassifier.py
-slurmstepd: error: Detected 1 oom_kill event in StepId=11761516.batch. Some of the step tasks have been OOM Killed.
