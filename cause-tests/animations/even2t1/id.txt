@@ -1,0 +1,9 @@
+## SLURM PROLOG ###############################################################
+##    Job ID : 11761520
+##  Job Name : even2t1
+##  Nodelist : node2335
+##      CPUs : 
+##  Mem/Node : 500 MB
+## Directory : /oscar/home/jforebac/CIR
+##   Job Started : Tue Jun 17 01:48:20 PM EDT 2025
+###############################################################################

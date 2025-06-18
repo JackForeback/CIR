@@ -1,0 +1,9 @@
+## SLURM PROLOG ###############################################################
+##    Job ID : 11761516
+##  Job Name : evenorigin
+##  Nodelist : node2335
+##      CPUs : 
+##  Mem/Node : 500 MB
+## Directory : /oscar/home/jforebac/CIR
+##   Job Started : Tue Jun 17 01:45:28 PM EDT 2025
+###############################################################################
