@@ -1,0 +1,24 @@
+/users/jforebac/CIR/venv/lib64/python3.9/site-packages/networkx/utils/backends.py:135: RuntimeWarning: networkx backend defined more than once: nx-loopback
+  backends.update(_get_backends("networkx.backends"))
+Traceback (most recent call last):
+  File "/oscar/home/jforebac/CIR/LinearClassifier.py", line 134, in <module>
+    monitor_parameters(data_copy, tdata_copy, num_classes, w.data.detach(), b.data.detach(),
+  File "/oscar/home/jforebac/CIR/functions.py", line 192, in monitor_parameters
+    plt.savefig(f"{path}/cause-tests/{jobname}/db/{seed}-{step}.png")
+  File "/users/jforebac/CIR/venv/lib64/python3.9/site-packages/matplotlib/pyplot.py", line 1228, in savefig
+    res = fig.savefig(*args, **kwargs)  # type: ignore[func-returns-value]
+  File "/users/jforebac/CIR/venv/lib64/python3.9/site-packages/matplotlib/figure.py", line 3395, in savefig
+    self.canvas.print_figure(fname, **kwargs)
+  File "/users/jforebac/CIR/venv/lib64/python3.9/site-packages/matplotlib/backend_bases.py", line 2204, in print_figure
+    result = print_method(
+  File "/users/jforebac/CIR/venv/lib64/python3.9/site-packages/matplotlib/backend_bases.py", line 2054, in <lambda>
+    print_method = functools.wraps(meth)(lambda *args, **kwargs: meth(
+  File "/users/jforebac/CIR/venv/lib64/python3.9/site-packages/matplotlib/backends/backend_agg.py", line 496, in print_png
+    self._print_pil(filename_or_obj, "png", pil_kwargs, metadata)
+  File "/users/jforebac/CIR/venv/lib64/python3.9/site-packages/matplotlib/backends/backend_agg.py", line 445, in _print_pil
+    mpl.image.imsave(
+  File "/users/jforebac/CIR/venv/lib64/python3.9/site-packages/matplotlib/image.py", line 1676, in imsave
+    image.save(fname, **pil_kwargs)
+  File "/users/jforebac/CIR/venv/lib64/python3.9/site-packages/PIL/Image.py", line 2576, in save
+    fp = builtins.open(filename, "w+b")
+FileNotFoundError: [Errno 2] No such file or directory: '/users/jforebac/CIR/cause-tests/even10grad020/db/9-35.png'
