@@ -7,13 +7,13 @@ import copy
 from models import LinearClassifier
 from functions import (
     even_space, scalar_calculation, plot_samples, count_samples, scale_samples,
-    track_accuracy, monitor_parameters, make_animation, plot_accuracy, seed_plot
+    track_accuracy, monitor_parameters, make_animation, plot_accuracy, seed_plot, shift_samples
     )
 
 # Set variables & seed for reproducible data generation
 num_classes = 3
 num_training_steps = 50
-num_seeds = 10
+num_seeds = 100
 input_dim = 2
 samples_per_class = 10000
 train_ratio = 0.7
@@ -26,21 +26,25 @@ coord = m.sqrt((height**2)/2)
 height = even_space(height)
 
 # Set means for 2D Gaussians
-means = [torch.tensor([0.0, 20]),
+means = [torch.tensor([0.0, height]),
          torch.tensor([-coord, -coord]),
-         torch.tensor([coord, -coord])]
+         torch.tensor([coord*2, -coord*2])]
 
 # Set covariance matrices. Establishes spread & direction of probability cluster
 covs = [torch.tensor([[1.0, 0.0], [0.0, 1.0]]),
         torch.tensor([[1.0, 0.0], [0.0, 1.0]]),
         torch.tensor([[1.0, 0.0], [0.0, 1.0]])]
 
+
 # Projects clusters to create equidistant class means for equal convergence
-# Can use max class mean and scale up, or scale all classes to the mean class centers
-scalars = scalar_calculation(means, method='max')
+# methods = max-norm, mean-norm, max-ETF, median-ETF, max-shift, median-shift
+scalars = scalar_calculation(means, method='mean-norm')
+scheck = False
 
 # Print means, scalars, and covariance to output file to verify distributions used in each test
 print(f'Means: {means} Covs: {covs} scalars: {scalars}')
+
+# scalars: {scalars}
 
 # Lists for Input and Output
 X, Y = [], []
@@ -61,9 +65,6 @@ for i in range(num_classes):
 X = torch.stack(X, dim=0)
 Y = torch.stack(Y, dim=0)
 
-# copy for plotting
-data_copy = copy.deepcopy(X)
-
 # Plot the base data
 plot_samples(X, num_classes, samples_per_class)
 
@@ -76,8 +77,8 @@ split_idx = int(train_ratio * total_samples)
 X_train, Y_train = X[:split_idx], Y[:split_idx]
 X_test, Y_test = X[split_idx:], Y[split_idx:]
 
-# copy of training data
-tdata_copy = copy.deepcopy(X_train)
+# copy for plotting
+data_copy = copy.deepcopy(X)
 
 # Calculate number of samples from each class in the test & train set
 train_samples = count_samples(Y_train, classes)
@@ -92,8 +93,8 @@ per_seed = {'train': [[[] for _ in range(num_training_steps)] for _ in range(num
 
 
 # Model Instantiation. Set seeds for num_seeds trials with random weights & 0 bias
-for i in range(num_seeds):
-    torch.manual_seed(i)
+for seed in range(num_seeds):
+    torch.manual_seed(seed)
     model = LinearClassifier(input_dim, num_classes)
 
     # Loss function and optimizer
@@ -101,17 +102,23 @@ for i in range(num_seeds):
     optimizer = optim.SGD(model.parameters(), lr=0.01)
 
     # Training loop
-    for j in range(num_training_steps):
+    for step in range(num_training_steps):
 
-        if j < 5:
-            scale_samples(X_train, Y_train, scalars, decay_param=1)
-            scale_samples(X, Y, scalars, decay_param=1)
-        elif j < 10:
-            scale_samples(X_train, Y_train, scalars, decay_param=0.5)
-            scale_samples(X, Y, scalars, decay_param=0.5)
+        if not scheck and step < 10:
+            if step < 5:
+                scale_samples(X, Y, scalars, decay_param=1)
+            else:
+                scale_samples(X, Y, scalars, decay_param=0.5)
+        elif scheck and step < 10:
+            shift = scalars - torch.stack(means) 
+            if step < 5:
+                shift_samples(X, Y, shift, decay_param=1)
+            else:
+                shift_samples(X, Y, shift, decay_param=0.5)
+
 
         y_pred = model(X_train)
-        track_accuracy(y_pred, j, train_dict, Y_train, num_classes, per_seed, train_samples, i, key='train')
+        track_accuracy(y_pred, step, train_dict, Y_train, num_classes, per_seed, train_samples, seed, key='train')
         loss = criterion(y_pred, Y_train)
 
         optimizer.zero_grad()
@@ -122,17 +129,17 @@ for i in range(num_seeds):
         b = model.linear.bias
 
 
-        monitor_parameters(X, X_train, num_classes, w.data.detach(), b.data.detach(),
-                            j, i, samples_per_class, w.grad.detach(), b.grad.detach())
+        monitor_parameters(X, Y, classes, num_classes, w.data.detach(), b.data.detach(),
+                            step, seed, samples_per_class, w.grad.detach(), b.grad.detach())
 
         # Can use same monitor params for thing or not? Maybe just change this shit up?
-        X_train = tdata_copy
         X = data_copy
-        tdata_copy = copy.deepcopy(tdata_copy)
+        X_train = X[:split_idx]
+        X_test = X[split_idx:]
         data_copy = copy.deepcopy(data_copy)
 
         # Log weights and gradients
-        print(f"{chr(10)}Step: {j+1}")
+        print(f"{chr(10)}Step: {step+1}")
         print("Weights:", model.linear.weight.data)
         print("Biases:", model.linear.bias.data)
         print("Weight Gradients:", model.linear.weight.grad)
@@ -143,7 +150,7 @@ for i in range(num_seeds):
         # Test loop
         with torch.no_grad():
             y_pred = model(X_test)
-            track_accuracy(y_pred, j, test_dict, Y_test, num_classes, per_seed, test_samples, i, key='test')
+            track_accuracy(y_pred, step, test_dict, Y_test, num_classes, per_seed, test_samples, seed, key='test')
 
 
 # make decision boundary animation
