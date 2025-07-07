@@ -1,11 +1,11 @@
 ## SLURM PROLOG ###############################################################
-##    Job ID : 11933346
+##    Job ID : 11955511
 ##  Job Name : maxshift100
-##  Nodelist : node2341
+##  Nodelist : node2334
 ##      CPUs : 
 ##   Mem/CPU : 2800 MB
 ## Directory : /oscar/home/jforebac/CIR
-##   Job Started : Thu Jul  3 01:05:41 PM EDT 2025
+##   Job Started : Mon Jul  7 12:13:01 PM EDT 2025
 ###############################################################################
 Means: [tensor([0.0000, 5.1764]), tensor([-14.1421, -14.1421]), tensor([ 7.0711, -7.0711])] Covs: [tensor([[1., 0.],
         [0., 1.]]), tensor([[1., 0.],
