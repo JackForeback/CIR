@@ -21,10 +21,10 @@ torch.manual_seed(42)
 # Sets coordinates used for cluster centers (can do manually)
 height = 10
 coord = m.sqrt((height**2)/2)
-height = even_space(height)
+# height = even_space(height)
 
 # Set means for 2D Gaussians
-means = [torch.tensor([0.0, height]),
+means = [torch.tensor([0.0, 20]),
          torch.tensor([-coord, -coord]),
          torch.tensor([coord, -coord])]
 
@@ -33,37 +33,29 @@ covs = [torch.tensor([[1.0, 0.0], [0.0, 1.0]]),
         torch.tensor([[1.0, 0.0], [0.0, 1.0]]),
         torch.tensor([[1.0, 0.0], [0.0, 1.0]])]
 
-c1 = is_equilateral(means)
-
-
-# Projects clusters to create ETF class means for equal convergence
-# methods = max-norm, mean-norm, max-ETF, median-ETF, max-shift, median-shift
-scalars = scalar_calculation(means, method='max-shift')
-scheck = True
-
-# Print means, scalars, and covariance to output file to verify distributions used in each test
-print(f'Means: {means} Covs: {covs} scalars: {scalars}, c1: {c1}')
-
-# scalars: {scalars}
-
-# Lists for Input and Output
-X, Y = [], []
-
 # Generate input data
-for class_id in range(num_classes):
-    for _ in range(samples_per_class):
-        x = torch.distributions.MultivariateNormal(means[class_id], covs[class_id]).sample()
-        X.append(x)
+X = generate_samples(means, covs, num_classes, samples_per_class)
 
 # Create corresponding one hot encoding class labels
 classes = [c for c in torch.eye(num_classes)]
-for i in range(num_classes):
-    for _ in range(samples_per_class):
-        Y.append(classes[i])
+Y = create_labels(num_classes, samples_per_class, classes)
                
 # Combine to single tensors
 X = torch.stack(X, dim=0)
 Y = torch.stack(Y, dim=0)
+means = torch.stack(means)
+covs = torch.stack(covs)
+
+# Determine if projection is necessary (i.e., not already ETF)
+apply_projection = not is_regular_polygon(means)
+projection_mode = 'shift'  # 'scale' or 'shift'
+
+# Projects clusters to create ETF class means for equal convergence
+# methods = max-norm, mean-norm, max-ETF, median-ETF, max-shift, median-shift
+scalars_or_shifts = transform_to_even_space(means, mode=projection_mode, ref_mode='median')
+
+# Print means, scalars, and covariance to output file to verify distributions used in each test
+print(f'Means: {means} Covs: {covs} Projection ({projection_mode}): {scalars_or_shifts}')
 
 # Plot initial data
 plot_samples(X, num_classes, samples_per_class)
@@ -78,18 +70,14 @@ X_train, Y_train = X[:split_idx], Y[:split_idx]
 X_test, Y_test = X[split_idx:], Y[split_idx:]
 
 # copy for plotting & projections
-data_copy = copy.deepcopy(X)
+data_copy = X.clone()
 
 # Calculate number of samples from each class in the test & train set
 train_samples = count_samples(Y_train, classes)
 test_samples = count_samples(Y_test, classes)
 
 # Dict to store average classification accuracy at each step
-train_dict = {i: [0] * num_training_steps for i in range(num_classes)}
-test_dict = {i: [0] * num_training_steps for i in range(num_classes)}
-# dict to store accuracy for each seed
-per_seed = {'train': [[[] for _ in range(num_training_steps)] for _ in range(num_seeds)],
-            'test':  [[[] for _ in range(num_training_steps)] for _ in range(num_seeds)]}
+train_dict, test_dict, per_seed = initialize_accuracy_tracking(num_classes, num_training_steps, num_seeds)
 
 
 # Model Instantiation. Set seeds for num_seeds trials with random weights & 0 bias
@@ -101,63 +89,54 @@ for seed in range(num_seeds):
     criterion = nn.MSELoss()
     optimizer = optim.SGD(model.parameters(), lr=0.01)
 
+    previous_avg_percent_correct = 0
+
     # Training loop
     for step in range(num_training_steps):
-        if step == 0:
-            decay = 1
-        else:
-            # percent incorrectly classified defines how much adjustment is needed
-            decay = 1 - previous_avg_percent_correct
-            print(f'decay: {decay}')
+        decay = 1 - previous_avg_percent_correct
 
-        if not c1:
-            # scaling for projection to ETF points
-            # FIXME Check if scaled means equilateral!
-            if not scheck:
-                scale_samples(X, Y, scalars, decay)
-                scaled = [mean * scalars[i] for i, mean in enumerate(means)]
-                print(f'is_eq: {is_equilateral(scaled)}')
-            elif scheck:
-                shift = scalars - torch.stack(means) 
-                shift_samples(X, Y, shift, decay)
-                scaled = [mean + scalars[i] for i, mean in enumerate(means)]
-                print(f'is_eq: {is_equilateral(scaled)}')
+        if apply_projection:
+            if projection_mode == 'scale':
+                scale_samples(X, Y, scalars_or_shifts, decay)
+                projected_means = means * scalars_or_shifts[:, None]  # (num_classes, 2)
+            elif projection_mode == 'shift':
+                shift_samples(X, Y, scalars_or_shifts, decay)
+                projected_means = means + scalars_or_shifts  # or scalars_or_shifts directly
+            
+            print(f'Equilateral after transform(decay):{decay} {is_regular_polygon(projected_means)}')
+            print(f'projected means: {projected_means}')
 
 
+        # make predictions, compute gradients
         y_pred = model(X_train)
-        previous_avg_percent_correct = track_accuracy(y_pred, step, train_dict, Y_train, num_classes, per_seed, train_samples, seed, key='train')
         loss = criterion(y_pred, Y_train)
-
         optimizer.zero_grad()
         loss.backward()
 
-        # plotting the linear classifier, based on the weights and gradients
-        w = model.linear.weight
-        b = model.linear.bias
+        # Track and plot
+        w, b = model.linear.weight.data, model.linear.bias.data
+        wg, bg = model.linear.weight.grad.detach(), model.linear.bias.grad.detach()
+        
+        monitor_parameters(X, Y, classes, num_classes, w, b, step, seed, samples_per_class, wg, bg)
 
+        previous_avg_percent_correct = track_accuracy(
+            y_pred, step, train_dict, Y_train, num_classes, per_seed, train_samples, seed, key='train'
+        )
 
-        monitor_parameters(X, Y, classes, num_classes, w.data.detach(), b.data.detach(),
-                            step, seed, samples_per_class, w.grad.detach(), b.grad.detach())
-
-        # reset data, scaling changes each step
-        X = data_copy
+        # Reset data for next step
+        X = data_copy.clone()
         X_train = X[:split_idx]
         X_test = X[split_idx:]
-        data_copy = copy.deepcopy(data_copy)
 
-        # # Log weights and gradients
-        # print(f"{chr(10)}Step: {step+1}")
-        # print("Weights:", model.linear.weight.data)
-        # print("Biases:", model.linear.bias.data)
-        # print("Weight Gradients:", model.linear.weight.grad)
-        # print("Bias Gradients:", model.linear.bias.grad)
-
+        # update gradients
         optimizer.step()
-        
-        # Test loop
+
+        # Evaluation Step
         with torch.no_grad():
-            y_pred = model(X_test)
-            previous_avg_percent_correct = track_accuracy(y_pred, step, test_dict, Y_test, num_classes, per_seed, test_samples, seed, key='test')
+            y_pred_test = model(X_test)
+            previous_avg_percent_correct = track_accuracy(
+                y_pred_test, step, test_dict, Y_test, num_classes, per_seed, test_samples, seed, key='test'
+            )
 
 
 # make decision boundary animation

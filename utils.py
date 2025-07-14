@@ -7,15 +7,15 @@ import copy
 import os
 
 # path to output folder
-path="/users/jforebac/CIR/cause-tests/multfile"
+path="/users/jforebac/CIR/cause-tests/0err"
 
+# FIXME Add norm method instead of ETF
 # maxnorm meannorm maxETF medianETF maxshift medianshift
 
 def even_space(height):
     """
     Returns the vertical coordinate to evenly space three classes as triangle vertices.
     """
-
     # side length of triangle
     tmp = ((height**2)/2)
 
@@ -23,17 +23,43 @@ def even_space(height):
     return (m.sqrt(3*tmp) - m.sqrt(tmp))
 
 
+def generate_samples(means, covs, num_classes, samples_per_class):
+    """
+    Generates input samples from 2D Gaussians.
+    """
+    X = []
+    for class_id in range(num_classes):
+        dist = torch.distributions.MultivariateNormal(means[class_id], covs[class_id])
+        X += [dist.sample() for _ in range(samples_per_class)]
+    return X
+
+
+def create_labels(num_classes, samples_per_class, classes):
+    """
+    Creates corresponding class labels for generated input data.
+    """
+    Y = []
+    for i in range(num_classes):
+        Y += [classes[i] for _ in range(samples_per_class)]
+    return Y
+
+
+def initialize_accuracy_tracking(num_classes, num_training_steps, num_seeds):
+    """
+    Initializes dicts for tracking average and per seed classification accuracy.
+    """
+    train_dict = {i: [0] * num_training_steps for i in range(num_classes)}
+    test_dict = {i: [0] * num_training_steps for i in range(num_classes)}
+    per_seed = {
+        'train': [[[] for _ in range(num_training_steps)] for _ in range(num_seeds)],
+        'test':  [[[] for _ in range(num_training_steps)] for _ in range(num_seeds)]
+    }
+    return train_dict, test_dict, per_seed
+
+
 def count_samples(data, key):
     """
-    Counts how many samples belong to each class.
-    Used to calculate correct classification percentage.
-
-    Args:
-        data (list[Tensor]): Labels of data points.
-        key (list[Tensor]): Class one-hot vectors.
-
-    Returns:
-        list[int]: Sample counts per class.
+    Counts how many samples belong to each class, used to calculate classification accuracy.
     """
     # counting loop. tmp index for each class
     tmp = [0] * len(key)
@@ -56,16 +82,13 @@ def scale_samples(x, y, scalars, decay_param):
     Args:
         x (list[Tensor]): Input features.
         y (list[Tensor]): Corresponding one-hot labels.
-        scalars (Tensor): Scalar per class.
+        scalars (Tensor): Scalar per class. Shape: (num_classes,)
         decay_param (float): Strength of transformation [0, 1].
     """
-    scale_dict = {(1.0, 0.0, 0.0): 0,
-                  (0.0, 1.0, 0.0): 1,
-                  (0.0, 0.0, 1.0): 2}
-
-    # Convex combination of inputs and scaled inputs, ratio determined by decay_param
     for i in range(len(x)):
-        x[i] = (x[i]*(scalars[scale_dict[tuple(y[i].tolist())]]) * decay_param) + (x[i] * (1 - decay_param))
+        class_idx = torch.argmax(y[i]).item()
+        scale = scalars[class_idx]
+        x[i] = ((x[i] * scale) * decay_param) + (x[i] * (1 - decay_param))
 
 
 def shift_samples(x, y, shift, decay_param):
@@ -75,49 +98,13 @@ def shift_samples(x, y, shift, decay_param):
     Args:
         x (list[Tensor]): Input features.
         y (list[Tensor]): Corresponding one-hot labels.
-        shift (Tensor): Target shift vectors for each class.
+        shift (Tensor): Shift vectors for each class. Shape: (num_classes, 2)
         decay_param (float): Strength of shift [0, 1].
     """
-    # decay_param = 1
-    scale_dict = {(1.0, 0.0, 0.0): 0,
-                  (0.0, 1.0, 0.0): 1,
-                  (0.0, 0.0, 1.0): 2}
-
-    # general loop
     for i in range(len(x)):
-        x[i] = (x[i] + (shift[scale_dict[tuple(y[i].tolist())]]) * decay_param) + (x[i] * (1 - decay_param))
+        class_idx = torch.argmax(y[i]).item()
+        x[i] = ((x[i] + shift[class_idx]) * decay_param) + (x[i] * (1 - decay_param))
 
-
-def scalar_calculation(means, method):
-    scalars = []
-    # find norms of all clusters
-    for i in means:
-        scalars.append(torch.linalg.vector_norm(i))
-
-    if method == 'max-norm':
-        tmp = max(scalars)
-        for i in range(len(scalars)):
-            scalars[i] = tmp / scalars[i]
-    elif method == 'mean-norm':
-        tmp = sum(scalars) / len(scalars)
-        for i in range(len(scalars)):
-            scalars[i] = tmp / scalars[i]
-    elif method == 'max-ETF':
-        scalars = space_calc(torch.stack(means), scalars, 'max')
-    elif method == 'median-ETF':
-        scalars = space_calc(torch.stack(means), scalars, 'median')
-    elif method == 'max-shift':
-        scalars = space_calc(torch.stack(means), scalars, 'max', 'shift')
-    elif method == 'median-shift':
-        scalars = space_calc(torch.stack(means), scalars, 'median', 'shift')
-    else:
-        scalars = torch.tensor([1.0, 1.0, 1.0])
-
-    if isinstance(scalars, list):
-        scalars = torch.tensor(scalars)
-
-    return scalars
-    
 
 # Function to track the total number of correct classifications at each step
 def track_accuracy(predictions, step, dict, data, n_classes, per_seed, samples, seed, key):
@@ -236,90 +223,103 @@ def monitor_parameters(data, Y, classes, num_classes, weights, biases, step, see
     plt.close()
 
 
-# FIXME how do I find the scalar? USE MEDIAN CLUSTER NORM TO CONSTRUCT ETF PROJECTION! OR MAX
-
-def space_calc(means, scalars, method, shift=False):
-    # calculate max norm
-    if method == 'max':
-        idx = max(scalars)
-        idx = scalars.index(idx)
-        height = scalars[idx].item()
-        # now calculate scalars to scale each to match that point
-    else:
-        sc = copy.deepcopy(scalars)
-        sc.sort()
-        idx = sc[(len(sc) // 2)]
-        idx = scalars.index(idx)
-        height = scalars[idx]
-
-    if idx:
-        # This works I think. Now just calculate scalars
-        coord = m.sqrt((height**2)/2)
-        height = even_space(height)
-    else:
-        coord = rotation(height, theta=((2*m.pi)/3))
-    
-    target = [torch.tensor([0.0, height]),
-         torch.tensor([-coord, -coord]),
-         torch.tensor([coord, -coord])]
-
-
-    target = torch.stack(target)
-
-    if shift:
-        return target
-
-    # now calculate scalars to scale each to match that point
-    # Compute dot products for each row
-    print(f'target: {target} means: {means}')
-    numerator = torch.sum(target * means, dim=1)     # T_i ⋅ A_i
-    denominator = torch.sum(means * means, dim=1)   # A_i ⋅ A_i
-    print(f'num: {numerator} denom: {denominator}')
-    scalars = numerator / denominator
-
-
-    # Safe division (avoid div-by-zero if needed)
-    print(f'scalars(func): {scalars}')
-
-    return scalars
-    
-
-def rotation(height, theta):
+def make_evenly_spaced_targets(num_points, radius=1.0):
     """
-    Rotates a point (0, height) by theta radians and returns abs(x).
-
-    Args:
-        height (float): Original Y-coordinate of the point.
-        theta (float): Rotation angle in radians.
-
-    Returns:
-        float: Absolute value of new X-coordinate.
-    """
-
-    rot_mat = torch.tensor([[m.cos(theta), -m.sin(theta)],[m.sin(theta), m.cos(theta)]])
-
-    coord = rot_mat @ torch.tensor([0, height])
-
-    return abs(coord[0]).item()
-
-
-def is_equilateral(points, tol=1e-9):
-    """
-    Check if 3 PyTorch 2D vectors form an equilateral triangle.
+    Generate N evenly spaced points on a circle centered at origin.
     
     Args:
-        points (list of torch.Tensor): List of 3 tensors, each of shape (2,)
-        tol (float): Tolerance for equality check due to floating-point error
-    
+        num_points (int): Number of target points.
+        radius (float): Radius of the circle.
+
     Returns:
-        bool: True if the points form an equilateral triangle, False otherwise
+        Tensor of shape (num_points, 2) with 2D coordinates.
     """
-    # Check all classes are equidistant
-    dist = []
-    for i in range(len(points)):
-        for j in range(i+1, len(points)):
-            dist.append(torch.sum((points[i] - points[j]) ** 2))
+    start_angle = m.pi / 2
+    angles = torch.linspace(0, 2 * m.pi, steps=num_points + 1)[:-1]  + start_angle # exclude endpoint
+    x = radius * torch.cos(angles)
+    y = radius * torch.sin(angles)
+    return torch.stack([x, y], dim=1)
+
+
+def transform_to_even_space(means, mode='shift', ref_mode='mean'):
+    """
+    Transforms a set of 2D class means to be evenly spaced around the origin.
+    
+    Args:
+        means (Tensor): Tensor of shape (N, 2), N is number of classes.
+        mode (str): 'shift' or 'scale'. Whether to compute shift vectors or scaling factors.
+        ref_mode (str): 'mean', 'max', or 'median' norm to use for radius in 'scale' mode.
+
+    Returns:
+        Tensor: 
+          - If mode='shift': target positions (N, 2)
+          - If mode='scale': scaling factors (N,)
+          - If mode='norm': scaling factors (N,)
+    """
+    num_points = means.shape[0]
+    
+    # Compute norms for each mean
+    norms = torch.linalg.norm(means, dim=1)
+    
+    # Choose reference radius
+    if ref_mode == 'mean':
+        radius = norms.mean().item()
+    elif ref_mode == 'max':
+        radius = norms.max().item()
+    elif ref_mode == 'median':
+        radius = norms.median().item()
+    else:
+        raise ValueError("ref_mode must be 'mean', 'max', or 'median'")
+    
+    # Generate evenly spaced target points
+    targets = make_evenly_spaced_targets(num_points, radius)
+
+    if mode == 'shift':
+        # Return target positions to shift means toward
+        print(f'targets: {targets}')
+        return targets - means
+
+    elif mode == 'scale':
+        # Compute scalar projection of target onto mean direction
+        dot_products = torch.sum(targets * means, dim=1)        # T_i ⋅ A_i
+        mean_norms_sq = torch.sum(means * means, dim=1) + 1e-9  # A_i ⋅ A_i (safe div)
+        scalars = dot_products / mean_norms_sq
+        return scalars
+
+    elif mode == 'norm':
+        # Compute scalar projection based off norms
+        scalars = torch.full_like(norms, fill_value=radius) / norms
+        return scalars
+
+    else:
+        raise ValueError("mode must be 'shift', 'scale', or 'norm'")
+
+
+
+def is_regular_polygon(points, tol=1e-9):
+    """
+    Check if N 2D points form a regular polygon (equal side lengths).
+    
+    Args:
+        points (Tensor): Tensor of shape (N, 2)
+        tol (float): Tolerance for distance comparison
         
-    print(f'dist: {dist}')
+    Returns:
+        bool: True if all pairwise distances between adjacent points are equal.
+    """
+    num_points = points.shape[0]
+    if num_points < 3:
+        raise ValueError('Need at least 3 points to form an ETF!')  # Need at least 3 points to form a polygon
 
-    return torch.allclose(dist[0], dist[1], atol=tol) and torch.allclose(dist[1], dist[2], atol=tol)
+    # Compute squared distances between each adjacent pair (circularly)
+    distances = []
+    for i in range(num_points):
+        p1 = points[i]
+        p2 = points[(i + 1) % num_points]  # wrap around
+        dist_sq = torch.sum((p1 - p2) ** 2)
+        distances.append(dist_sq)
+    
+    distances = torch.stack(distances)
+
+    # Check that all distances are close to the first one (within tolerance)
+    return torch.all(torch.isclose(distances, distances[0], atol=tol))
