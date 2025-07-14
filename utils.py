@@ -9,7 +9,7 @@ import os
 # path to output folder
 path="/users/jforebac/CIR/cause-tests/multfile"
 
-# maxnorm100 meannorm100 maxETF100 medianETF100 maxshift100 medianshift100
+# maxnorm meannorm maxETF medianETF maxshift medianshift
 
 def even_space(height):
     """
@@ -21,6 +21,71 @@ def even_space(height):
 
     # return even spaced height
     return (m.sqrt(3*tmp) - m.sqrt(tmp))
+
+
+def count_samples(data, key):
+    """
+    Counts how many samples belong to each class.
+    Used to calculate correct classification percentage.
+
+    Args:
+        data (list[Tensor]): Labels of data points.
+        key (list[Tensor]): Class one-hot vectors.
+
+    Returns:
+        list[int]: Sample counts per class.
+    """
+    # counting loop. tmp index for each class
+    tmp = [0] * len(key)
+
+    for i in data:
+        if (torch.equal(i, key[0])):
+            tmp[0] += 1
+        elif (torch.equal(i, key[1])):
+            tmp[1] += 1
+        else:
+            tmp[2] += 1
+
+    return tmp
+
+
+def scale_samples(x, y, scalars, decay_param):
+    """
+    Scales input samples toward target norms using provided scalars.
+
+    Args:
+        x (list[Tensor]): Input features.
+        y (list[Tensor]): Corresponding one-hot labels.
+        scalars (Tensor): Scalar per class.
+        decay_param (float): Strength of transformation [0, 1].
+    """
+    scale_dict = {(1.0, 0.0, 0.0): 0,
+                  (0.0, 1.0, 0.0): 1,
+                  (0.0, 0.0, 1.0): 2}
+
+    # Convex combination of inputs and scaled inputs, ratio determined by decay_param
+    for i in range(len(x)):
+        x[i] = (x[i]*(scalars[scale_dict[tuple(y[i].tolist())]]) * decay_param) + (x[i] * (1 - decay_param))
+
+
+def shift_samples(x, y, shift, decay_param):
+    """
+    Shifts input samples toward a class-specific target location.
+
+    Args:
+        x (list[Tensor]): Input features.
+        y (list[Tensor]): Corresponding one-hot labels.
+        shift (Tensor): Target shift vectors for each class.
+        decay_param (float): Strength of shift [0, 1].
+    """
+    # decay_param = 1
+    scale_dict = {(1.0, 0.0, 0.0): 0,
+                  (0.0, 1.0, 0.0): 1,
+                  (0.0, 0.0, 1.0): 2}
+
+    # general loop
+    for i in range(len(x)):
+        x[i] = (x[i] + (shift[scale_dict[tuple(y[i].tolist())]]) * decay_param) + (x[i] * (1 - decay_param))
 
 
 def scalar_calculation(means, method):
@@ -52,42 +117,6 @@ def scalar_calculation(means, method):
         scalars = torch.tensor(scalars)
 
     return scalars
-
-# Return how many samples are in each class
-def count_samples(data, key):
-    tmp = [0, 0, 0]
-    for i in data:
-        if (torch.equal(i, key[0])):
-            tmp[0] += 1
-        elif (torch.equal(i, key[1])):
-            tmp[1] += 1
-        else:
-            tmp[2] += 1
-
-    return tmp
-
-
-# FIXME later add decay_rate, step to track, and method. Parameter is percent correct
-def scale_samples(x, y, scalars, decay_param):
-    # decay_param = 1
-    scale_dict = {(1.0, 0.0, 0.0): 0,
-                  (0.0, 1.0, 0.0): 1,
-                  (0.0, 0.0, 1.0): 2}
-
-    # general loop
-    for i in range(len(x)):
-        x[i] = (x[i]*(scalars[scale_dict[tuple(y[i].tolist())]]) * decay_param) + (x[i] * (1 - decay_param))
-
-
-def shift_samples(x, y, shift, decay_param):
-    # decay_param = 1
-    scale_dict = {(1.0, 0.0, 0.0): 0,
-                  (0.0, 1.0, 0.0): 1,
-                  (0.0, 0.0, 1.0): 2}
-
-    # general loop
-    for i in range(len(x)):
-        x[i] = (x[i] + (shift[scale_dict[tuple(y[i].tolist())]]) * decay_param) + (x[i] * (1 - decay_param))
     
 
 # Function to track the total number of correct classifications at each step
@@ -256,6 +285,17 @@ def space_calc(means, scalars, method, shift=False):
     
 
 def rotation(height, theta):
+    """
+    Rotates a point (0, height) by theta radians and returns abs(x).
+
+    Args:
+        height (float): Original Y-coordinate of the point.
+        theta (float): Rotation angle in radians.
+
+    Returns:
+        float: Absolute value of new X-coordinate.
+    """
+
     rot_mat = torch.tensor([[m.cos(theta), -m.sin(theta)],[m.sin(theta), m.cos(theta)]])
 
     coord = rot_mat @ torch.tensor([0, height])
@@ -274,6 +314,7 @@ def is_equilateral(points, tol=1e-9):
     Returns:
         bool: True if the points form an equilateral triangle, False otherwise
     """
+    # Check all classes are equidistant
     dist = []
     for i in range(len(points)):
         for j in range(i+1, len(points)):

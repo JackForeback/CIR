@@ -56,7 +56,7 @@ for class_id in range(num_classes):
         X.append(x)
 
 # Create corresponding one hot encoding class labels
-classes = [torch.tensor([1.0, 0.0, 0.0]), torch.tensor([0.0, 1.0, 0.0]), torch.tensor([0.0, 0.0, 1.0])]
+classes = [c for c in torch.eye(num_classes)]
 for i in range(num_classes):
     for _ in range(samples_per_class):
         Y.append(classes[i])
@@ -174,5 +174,5 @@ for i in range(num_classes):
         test_dict[i][j] /= test_div
 
 # call function to plot average and per seed accuracy
-plot_accuracy(train_dict, test_dict)
+plot_avg_accuracy(train_dict, test_dict)
 seed_plot(per_seed, num_seeds, num_training_steps)
