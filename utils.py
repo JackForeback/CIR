@@ -6,21 +6,22 @@ from PIL import Image
 import copy
 import os
 
+# maxshift maxscale meanshift meanscale medianshift medianscale
+
 # path to output folder
-path="/users/jforebac/CIR/cause-tests/0err"
+path="/users/jforebac/CIR/cause-tests/1far"
 
-# FIXME Add norm method instead of ETF
-# maxnorm meannorm maxETF medianETF maxshift medianshift
 
-def even_space(height):
+def compute_accuracies(num_classes, train_samples, test_samples, num_seeds, num_training_steps, train_dict, test_dict):
     """
-    Returns the vertical coordinate to evenly space three classes as triangle vertices.
+    Computes average classification accuracies for each class
     """
-    # side length of triangle
-    tmp = ((height**2)/2)
-
-    # return even spaced height
-    return (m.sqrt(3*tmp) - m.sqrt(tmp))
+    for i in range(num_classes):
+        train_div = train_samples[i]*num_seeds
+        test_div = test_samples[i]*num_seeds
+        for j in range(num_training_steps):
+            train_dict[i][j] /= train_div
+            test_dict[i][j] /= test_div
 
 
 def generate_samples(means, covs, num_classes, samples_per_class):
@@ -125,104 +126,6 @@ def track_accuracy(predictions, step, dict, data, n_classes, per_seed, samples, 
     return tmp / n_classes
 
 
-# Plot weights as lines, and weights plus bias to monitor parameters
-def monitor_parameters(data, Y, classes, num_classes, weights, biases, step, seed, samples_per_class, w_grad, b_grad):
-    # Sample plotting
-    colors = ['green', 'blue', 'purple']
-    labels = [f"Class {i}" for i in range(num_classes)]
-
-    plt.figure(figsize=(10, 6))
-
-    # Plot original class samples
-    for class_id in range(num_classes):
-        # Get all indices for this class
-        class_indices = [i for i, label in enumerate(Y) if torch.equal(label, classes[class_id])]
-        if len(class_indices) == 0:
-            continue
-        samples = data[class_indices]
-        plt.scatter(
-            samples[:, 0], samples[:, 1],
-            color=colors[class_id],
-            label=labels[class_id],
-        )
-
-    # Plotting
-    x_vals = torch.linspace(data[:, 0].min() - 1, data[:, 0].max() + 1, 500)
-
-    x_min, x_max = data[:, 0].min().item(), data[:, 0].max().item()
-    y_min, y_max = data[:, 1].min().item(), data[:, 1].max().item()
-
-    # Add a little margin
-    x_margin = (x_max - x_min) * 0.1
-    y_margin = (y_max - y_min) * 0.1
-
-    tmp, new = [], []
-    change = weights - 0.01 * w_grad
-
-    # Compute and plot decision boundaries between each pair of classes
-    for i in range(num_classes):
-        for j in range(i + 1, num_classes):
-
-            w_diff = weights[i] - weights[j]
-            n_diff = change[i] - change[j]
-
-            b_diff = biases[i] - biases[j]
-            
-            a, b = w_diff[0].item(), w_diff[1].item()
-            if (n_diff[1].item() != 0):
-                new.append(-(n_diff[0].item() / n_diff[1].item()))
-            else:
-                new.append(m.inf)
-            c = b_diff.item()
-            
-            # plot the line
-            if b != 0:
-                y_vals = -(a / b) * x_vals - (c / b)
-                tmp.append(-(a/b))
-                plt.plot(x_vals, y_vals, label=f"Boundary {i} vs {j}")
-
-            elif a == 0:
-                x_intercept = 0
-                tmp.append(m.inf)
-                plt.axvline(x_intercept, label=f"Boundary {i} vs {j}")
-            
-            else:
-                # Vertical line
-                x_intercept = -c / a
-                tmp.append(m.inf)
-                plt.axvline(x_intercept, label=f"Boundary {i} vs {j}")
-
-    # FIXME want to see how it affects lines. new abc for each of the 3 different lines
-    data = [[w_grad[0, 0].item(), w_grad[0, 1].item(), b_grad[0].item()],
-            [w_grad[1, 0].item(), w_grad[1, 1].item(), b_grad[1].item()],
-            [w_grad[2, 0].item(), w_grad[2, 1].item(), b_grad[2].item()]]
-    rows = ['R1G', 'R2G', 'R3G']
-    columns = ['X', 'Y', 'Bias']
-
-    plt.table(cellText=data,colLabels=columns,rowLabels=rows,loc='bottom',cellLoc='left')
-
-    avg = sum(new)/3
-    
-    # FIXME Add comments and explain everything
-    data = [[tmp[0], new[0], (tmp[0]-new[0])/avg],
-            [tmp[1], new[1], (tmp[1]-new[1])/avg],
-            [tmp[2], new[2], (tmp[2]-new[2])/avg]]
-    columns = ['slope', 'new', 'dev']
-    rows = ['DB1', 'DB2', 'DB3']
-
-    plt.table(cellText=data,colLabels=columns,rowLabels=rows,loc='top',cellLoc='left')
-
-    # Plot formatting
-    plt.xlabel("X")
-    plt.ylabel("Y")
-    plt.axis([x_min-x_margin, x_max+x_margin, y_min-y_margin, y_max+y_margin])
-    plt.grid(True)
-    plt.legend()
-    plt.tight_layout()
-    plt.savefig(f"{path}/db/{seed}-{step}.png")
-    plt.close()
-
-
 def make_evenly_spaced_targets(num_points, radius=1.0):
     """
     Generate N evenly spaced points on a circle centered at origin.
@@ -238,7 +141,11 @@ def make_evenly_spaced_targets(num_points, radius=1.0):
     angles = torch.linspace(0, 2 * m.pi, steps=num_points + 1)[:-1]  + start_angle # exclude endpoint
     x = radius * torch.cos(angles)
     y = radius * torch.sin(angles)
-    return torch.stack([x, y], dim=1)
+    means = torch.stack([x, y], dim=1)
+
+    means = sorted(means, key=lambda p: (-p[1].item(), p[0].item()))
+
+    return torch.stack(means)
 
 
 def transform_to_even_space(means, mode='shift', ref_mode='mean'):
@@ -247,14 +154,13 @@ def transform_to_even_space(means, mode='shift', ref_mode='mean'):
     
     Args:
         means (Tensor): Tensor of shape (N, 2), N is number of classes.
-        mode (str): 'shift' or 'scale'. Whether to compute shift vectors or scaling factors.
-        ref_mode (str): 'mean', 'max', or 'median' norm to use for radius in 'scale' mode.
+        mode (str): 'shift' or 'scale'. Shift vectors to ETF or scale for same norms.
+        ref_mode (str): 'mean', 'max', or 'median' norm to use for shift/scale radius.
 
     Returns:
         Tensor: 
           - If mode='shift': target positions (N, 2)
           - If mode='scale': scaling factors (N,)
-          - If mode='norm': scaling factors (N,)
     """
     num_points = means.shape[0]
     
@@ -273,26 +179,19 @@ def transform_to_even_space(means, mode='shift', ref_mode='mean'):
     
     # Generate evenly spaced target points
     targets = make_evenly_spaced_targets(num_points, radius)
+    print(f'targets: {targets}')
 
     if mode == 'shift':
         # Return target positions to shift means toward
-        print(f'targets: {targets}')
         return targets - means
 
     elif mode == 'scale':
-        # Compute scalar projection of target onto mean direction
-        dot_products = torch.sum(targets * means, dim=1)        # T_i ⋅ A_i
-        mean_norms_sq = torch.sum(means * means, dim=1) + 1e-9  # A_i ⋅ A_i (safe div)
-        scalars = dot_products / mean_norms_sq
-        return scalars
-
-    elif mode == 'norm':
-        # Compute scalar projection based off norms
-        scalars = torch.full_like(norms, fill_value=radius) / norms
+        # Scale each mean vector to match target norm (1e-9 for stability)
+        scalars = radius / (norms + 1e-9)
         return scalars
 
     else:
-        raise ValueError("mode must be 'shift', 'scale', or 'norm'")
+        raise ValueError("mode must be 'shift' or 'scale'")
 
 
 
