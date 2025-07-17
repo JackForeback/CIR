@@ -9,7 +9,7 @@ import os
 # maxshift maxscale meanshift meanscale medianshift medianscale
 
 # path to output folder
-path="/users/jforebac/CIR/cause-tests/1far"
+path="/users/jforebac/CIR/cause-tests/4class"
 
 
 def compute_accuracies(num_classes, train_samples, test_samples, num_seeds, num_training_steps, train_dict, test_dict):
@@ -66,12 +66,7 @@ def count_samples(data, key):
     tmp = [0] * len(key)
 
     for i in data:
-        if (torch.equal(i, key[0])):
-            tmp[0] += 1
-        elif (torch.equal(i, key[1])):
-            tmp[1] += 1
-        else:
-            tmp[2] += 1
+        tmp[torch.argmax(i)] += 1
 
     return tmp
 
@@ -137,7 +132,12 @@ def make_evenly_spaced_targets(num_points, radius=1.0):
     Returns:
         Tensor of shape (num_points, 2) with 2D coordinates.
     """
-    start_angle = m.pi / 2
+    # odd number of classes starts at top for symmetry
+    if (num_points % 2):
+        start_angle = m.pi / 2
+    else:
+        start_angle = (m.pi / 2) + (m.pi / num_points)
+
     angles = torch.linspace(0, 2 * m.pi, steps=num_points + 1)[:-1]  + start_angle # exclude endpoint
     x = radius * torch.cos(angles)
     y = radius * torch.sin(angles)
