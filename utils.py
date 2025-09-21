@@ -12,6 +12,112 @@ import os
 path="/users/jforebac/CIR/cause-tests/4class"
 
 
+# make sure loss between class is the same
+# (not what we want? Might need larger gradients to even out initialization differences)
+def loss_with_per_class_gap(pred, target, lambda_fair=0.1):
+    """
+    pred: (N, C) raw logits
+    target: (N, C) one-hot labels
+    """
+    num_classes = target.size(1)
+    
+    # Standard MSE
+    mse_loss = F.mse_loss(pred, target)
+
+    # Per-class average MSE
+    per_class_losses = []
+    labels = target.argmax(dim=1)
+    for k in range(num_classes):
+        mask = (labels == k)  # select samples of class k
+        if mask.any():
+            loss_k = F.mse_loss(pred[mask], target[mask])
+            per_class_losses.append(loss_k)
+        else:
+            # No samples of this class in the batch
+            per_class_losses.append(torch.tensor(0.0, device=pred.device))
+
+    per_class_losses = torch.stack(per_class_losses)
+    
+    # Fairness penalty = gap between worst and best class
+    fairness_loss = per_class_losses.max() - per_class_losses.min()
+
+    # Combine
+    total_loss = mse_loss + lambda_fair * fairness_loss
+    return total_loss, mse_loss, fairness_loss
+
+
+# The gap in the mean softmax indicates confidence. Want even confidence in classification (good metric)
+def loss_with_soft_accuracy_gap(pred, target, lambda_fair=0.1):
+    """
+    pred: (N, C) raw logits
+    target: (N, C) one-hot labels
+    """
+    num_classes = target.size(1)
+    
+    # Standard MSE
+    mse_loss = F.mse_loss(pred, target)
+
+    # Convert to probabilities
+    probs = F.softmax(pred, dim=1)
+    labels = target.argmax(dim=1)
+
+    # Per-class mean confidence
+    class_confidences = []
+    for k in range(num_classes):
+        mask = (labels == k)
+        if mask.any():
+            conf_k = probs[mask, k].mean()
+            class_confidences.append(conf_k)
+        else:
+            class_confidences.append(torch.tensor(0.0, device=pred.device))
+
+    class_confidences = torch.stack(class_confidences)
+
+    # Fairness penalty = confidence gap
+    fairness_loss = class_confidences.max() - class_confidences.min()
+
+    # Combine
+    total_loss = mse_loss + lambda_fair * fairness_loss
+    return total_loss, mse_loss, fairness_loss
+
+
+def evo_loop(num_evos, pop_size, weights, data):
+    pop = generate_population(weights, pop_size)
+    for _ in range(num_evos):
+        eval_pop(data, pop)
+
+
+
+def generate_population(weights, pop_size):
+    population = []
+    population.append(weights)
+    for i in range(pop_size):
+        population.append(mutate(weights))
+    return population
+
+
+def eval_pop(data, population):
+    # for i in population, plug in weights and eval accuracy using same functions
+    # my guess is it's just going to optimize toward 0 unless I add another penalty term
+    # so observe iti
+
+    # torunament selectiom, divide into maybe 10
+    # choose k (the tournament size) individuals from the population at random
+    # choose the best individual from the tournament with probability p
+    # choose the second best individual with probability p*(1-p)
+    # choose the third best individual with probability p*((1-p)^2)
+    # and so on
+    pass
+
+def mutate(population):
+    # randomly mutate an entry with probability 1/6 (inject random noise)
+    pass
+
+def reproduction(population):
+    pass
+
+
+
 def compute_accuracies(num_classes, train_samples, test_samples, num_seeds, num_training_steps, train_dict, test_dict):
     """
     Computes average classification accuracies for each class
