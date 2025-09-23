@@ -81,9 +81,9 @@ def loss_with_soft_accuracy_gap(pred, target, lambda_fair=0.1):
     return total_loss, mse_loss, fairness_loss
 
 
-def evo_loop(num_evos, pop_size, weights, data):
+def evo_weights(loops, pop_size, weights, data, model):
     pop = generate_population(weights, pop_size)
-    for _ in range(num_evos):
+    for _ in range(loops):
         eval_pop(data, pop)
 
 
@@ -95,8 +95,17 @@ def generate_population(weights, pop_size):
         population.append(mutate(weights))
     return population
 
+def mutate(population):
+    # randomly mutate an entry with probability 1/6 (inject random noise)
+    for i in population:
+        for j in i:
+            x = torch.randint(0, 6)
+            if not x:
+                j += torch.randn(1)[0]
 
-def eval_pop(data, population):
+
+def eval_pop(model, data, population):
+    ranked = []
     # for i in population, plug in weights and eval accuracy using same functions
     # my guess is it's just going to optimize toward 0 unless I add another penalty term
     # so observe iti
@@ -107,13 +116,12 @@ def eval_pop(data, population):
     # choose the second best individual with probability p*(1-p)
     # choose the third best individual with probability p*((1-p)^2)
     # and so on
-    pass
-
-def mutate(population):
-    # randomly mutate an entry with probability 1/6 (inject random noise)
-    pass
+    for i in population:
+        loss = model(data, )
+        pass
 
 def reproduction(population):
+    
     pass
 
 

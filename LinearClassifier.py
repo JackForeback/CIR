@@ -50,6 +50,8 @@ Y = torch.stack(Y, dim=0)
 
 
 # Determine if projection is necessary (i.e., not already ETF)
+pcl = False
+sag = False
 apply_projection = False
 # not is_regular_polygon(means)
 ref = 'median' # ref_mode (str): 'mean', 'median', or 'max'
@@ -110,13 +112,17 @@ for seed in range(num_seeds):
             print(f'Equilateral after transform: {is_regular_polygon(projected_means)}')
             print(f'Projected means: {projected_means}')
 
-
-
         # make predictions, compute gradients
         y_pred = model(X_train)
-        loss = criterion(y_pred, Y_train)
+        if pcl:
+            total_loss, mse_loss, fairness_loss = loss_with_per_class_gap(y_pred, Y_train)
+        elif sag:
+            total_loss, mse_loss, fairness_loss = loss_with_soft_accuracy_gap(y_pred, Y_train)
+        else:
+            total_loss = criterion(y_pred, Y_train)
+        
         optimizer.zero_grad()
-        loss.backward()
+        total_loss.backward()
 
         # Track and plot
         w, b = model.linear.weight.data, model.linear.bias.data
