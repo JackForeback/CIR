@@ -47,8 +47,8 @@ Y = torch.stack(Y, dim=0)
 
 
 # Determine if projection is necessary (i.e., not already ETF)
-per_class_gap = True
-soft_accuracy_gap = False
+per_class_gap = False
+soft_accuracy_gap = True
 apply_projection = False
 # not is_regular_polygon(means)
 ref = 'median' # ref_mode (str): 'mean', 'median', or 'max'

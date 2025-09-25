@@ -74,7 +74,7 @@ def loss_with_per_class_gap(pred, target, lambda_fair=0.1):
     fairness_loss = per_class_losses.max() - per_class_losses.min()
 
     # Combine
-    total_loss = ((1-lambda_fair) * mse_loss) + (lambda_fair * fairness_loss)
+    total_loss = mse_loss + (lambda_fair * fairness_loss)
     return total_loss, mse_loss, fairness_loss
 
 
@@ -101,25 +101,28 @@ def loss_with_soft_accuracy_gap(pred, target, lambda_fair=0.1):
         mask = (labels == k)
         if mask.any():
             conf_k = probs[mask, k].mean()
+            print("confk", conf_k)
             class_confidences.append(conf_k)
         else:
             class_confidences.append(torch.tensor(0.0, device=pred.device))
 
     class_confidences = torch.stack(class_confidences)
+    print("classconf", class_confidences)
 
     # Fairness penalty = confidence gap
     fairness_loss = class_confidences.max() - class_confidences.min()
+    print("fairloss", fairness_loss)
 
     # Combine
-    total_loss = mse_loss + lambda_fair * fairness_loss
+    total_loss = mse_loss + (lambda_fair * fairness_loss)
     return total_loss, mse_loss, fairness_loss
 
 
-def evo_weights(loops, pop_size, weights, data, model):
+def evo_weights(num_iter, pop_size, weights, means):
     pop = generate_population(weights, pop_size)
-    for _ in range(loops):
-        eval_pop(data, pop)
-
+    for _ in range(num_iter):
+        eval_pop(means, pop)
+        reproduce()
 
 
 def generate_population(weights, pop_size):
@@ -138,8 +141,62 @@ def mutate(population):
                 j += torch.randn(1)[0]
 
 
-def eval_pop(model, data, population):
-    ranked = []
+# minimize entropy. Take the means, put them into weights matrices.
+# Will get 3 outputs and want max entries of each outputs to be the same.
+# That is how they will be ranked? Because softmax is how confident?
+# Can be confidently wrong? Is that fine? Could also compare to true?
+# So if max-min good and all 3 are correct corresponding classes then you are good, otherwise no.
+
+#OLD
+# def eval_pop(means, population):
+#     r1, r2 = [], []
+#     labels = torch.tensor([1,0,0],[0,1,0],[0,0,1])
+#     for i in population:
+#         for j in means:
+#             tmp = i @ j
+#             r1.append(max(F.softmax(tmp)))
+#             r1[-1] += labels[tmp.index(r1[-1])]
+#         m = r1.mean()
+#         for k in r1:
+#             k -= m
+#             k = abs(k)
+#     r2.append(sum(r1)) 
+#     # wrong because sorts r2 and not corresponding entry
+#     r2 = sorted(r2)
+
+
+
+
+# FIXME does this work as intended?
+
+def eval_pop(means, population):
+    r1, r2 = [], []
+    labels = torch.tensor([1,0,0],[0,1,0],[0,0,1])
+
+    # FIXME sort the population
+    entropy_scores = []
+
+    for candidate in population:  
+        confidences = []
+        for mean_vec in means:
+            scores = candidate @ mean_vec             # raw logits
+            probs = F.softmax(scores, dim=0)          # convert to probabilities
+            max_prob, pred_class = torch.max(probs, dim=0)
+            
+            # Adjust with label (if needed)
+            confidences.append(max_prob.item() + labels[pred_class.item()])
+        
+        # Centering and absolute deviations
+        mean_conf = sum(confidences) / len(confidences)
+        deviations = [abs(c - mean_conf) for c in confidences]
+        
+        entropy_scores.append(sum(deviations))
+
+    # Sort population by entropy
+    scored_population = sorted(zip(entropy_scores, population), key=lambda x: x[0])
+    entropy_scores_sorted, population_sorted = zip(*scored_population)
+
+def reproduce(population):
     # for i in population, plug in weights and eval accuracy using same functions
     # my guess is it's just going to optimize toward 0 unless I add another penalty term
     # so observe iti
@@ -150,12 +207,6 @@ def eval_pop(model, data, population):
     # choose the second best individual with probability p*(1-p)
     # choose the third best individual with probability p*((1-p)^2)
     # and so on
-    for i in population:
-        loss = model(data, )
-        pass
-
-def reproduction(population):
-    
     pass
 
 

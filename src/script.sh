@@ -7,7 +7,7 @@
 #SBATCH --output=/mnt/home/forebacj/CIR/ml-job%j.out
 #SBATCH --error=/mnt/home/forebacj/CIR/ml-job%j.err
 #SBATCH --mail-user=forebacj@mail.gvsu.edu
-#SBATCH --mail-type=end,fail
+##SBATCH --mail-type=end,fail
 
 source /mnt/home/forebacj/CIR/venv/bin/activate
 
