@@ -48,7 +48,7 @@ Y = torch.stack(Y, dim=0)
 
 # Determine if projection is necessary (i.e., not already ETF)
 per_class_gap = False
-soft_accuracy_gap = True
+soft_accuracy_gap = False
 apply_projection = False
 # not is_regular_polygon(means)
 ref = 'median' # ref_mode (str): 'mean', 'median', or 'max'
@@ -87,6 +87,8 @@ train_dict, test_dict, per_seed = initialize_accuracy_tracking(num_classes, num_
 for seed in range(num_seeds):
     torch.manual_seed(seed)
     model = LinearClassifier(input_dim, num_classes)
+
+    model.linear.weight.data = evo_weights(num_iter=1, pop_size=100000, weights=model.linear.weight.data, means=means)
 
     # Loss function and optimizer
     criterion = nn.MSELoss()

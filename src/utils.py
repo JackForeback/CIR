@@ -3,8 +3,11 @@ import torch.nn.functional as F
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 import math as m
+from models import LinearClassifier
 from PIL import Image
 import copy, os, argparse, sys
+from typing import Iterable, List, Tuple
+
 
 # maxshift maxscale meanshift meanscale medianshift medianscale
 path = sys.argv[2]
@@ -121,15 +124,19 @@ def loss_with_soft_accuracy_gap(pred, target, lambda_fair=0.1):
 def evo_weights(num_iter, pop_size, weights, means):
     pop = generate_population(weights, pop_size)
     for _ in range(num_iter):
-        eval_pop(means, pop)
-        reproduce()
+        population_sorted, entropy_sorted = eval_pop(means, pop)
+        # reproduce()
+    return population_sorted[0].clone()
 
 
 def generate_population(weights, pop_size):
     population = []
     population.append(weights)
     for i in range(pop_size):
-        population.append(mutate(weights))
+        torch.manual_seed(i)
+        model = LinearClassifier(2, 3)
+        population.append(model.linear.weight.data)
+        # population.append(mutate(weights))
     return population
 
 def mutate(population):
@@ -161,7 +168,7 @@ def mutate(population):
 #             k -= m
 #             k = abs(k)
 #     r2.append(sum(r1)) 
-#     # wrong because sorts r2 and not corresponding entry
+#     # wrong because sorts r2 and not corresponding population entry
 #     r2 = sorted(r2)
 
 
@@ -169,32 +176,84 @@ def mutate(population):
 
 # FIXME does this work as intended?
 
-def eval_pop(means, population):
-    r1, r2 = [], []
-    labels = torch.tensor([1,0,0],[0,1,0],[0,0,1])
+# def eval_pop(means, population):
+#     labels = [torch.tensor([1,0,0]),torch.tensor([0,1,0]),torch.tensor([0,0,1])]
 
-    # FIXME sort the population
-    entropy_scores = []
+#     print("labels", labels)
 
-    for candidate in population:  
-        confidences = []
-        for mean_vec in means:
-            scores = candidate @ mean_vec             # raw logits
-            probs = F.softmax(scores, dim=0)          # convert to probabilities
-            max_prob, pred_class = torch.max(probs, dim=0)
+#     # FIXME sort the population
+#     entropy_scores = []
+
+#     for candidate in population:  
+#         confidences = []
+#         for mean_vec in means:
+#             scores = candidate @ mean_vec             # raw logits
+#             probs = F.softmax(scores, dim=0)          # convert to probabilities
+#             max_prob, pred_class = torch.max(probs, dim=0)
             
-            # Adjust with label (if needed)
-            confidences.append(max_prob.item() + labels[pred_class.item()])
+#             # Adjust with label (if needed)
+#             confidences.append(max_prob.item() + labels[pred_class.item()])
         
-        # Centering and absolute deviations
-        mean_conf = sum(confidences) / len(confidences)
-        deviations = [abs(c - mean_conf) for c in confidences]
+#         # Centering and absolute deviations
+#         mean_conf = sum(confidences) / len(confidences)
+#         deviations = [abs(c - mean_conf) for c in confidences]
         
-        entropy_scores.append(sum(deviations))
+#         entropy_scores.append(sum(deviations))
 
-    # Sort population by entropy
-    scored_population = sorted(zip(entropy_scores, population), key=lambda x: x[0])
-    entropy_scores_sorted, population_sorted = zip(*scored_population)
+#     # Sort population by entropy
+#     scored_population = sorted(zip(entropy_scores, population), key=lambda x: x[0])
+#     entropy_scores_sorted, population_sorted = zip(*scored_population)
+#     print("sorted", population_sorted)
+
+
+#     return population_sorted
+
+#FIXME didnt work. Verify get same result with old one. Show entropy of best weight matrix to verify as well taht it is very low
+
+def eval_pop(means: Iterable[torch.Tensor],
+             population: Iterable[torch.Tensor],
+             return_best_only: bool = False
+            ) -> Tuple[List[torch.Tensor], List[float]]:
+    """
+    Evaluate population and sort by entropy (low -> high).
+    - means: iterable of mean vectors, each shape (feature_dim,)
+    - population: iterable of candidate weight matrices, each shape (num_classes, feature_dim)
+    Returns (population_sorted_list, entropy_scores_sorted_list).
+    If return_best_only True, returns ([best_candidate], [best_score])
+    """
+
+    entropies = []
+
+    # Parameters
+    eps = 1e-12
+
+    for candidate in population:
+        # candidate @ mean -> logits for classes
+        # compute entropy H = -sum(p * log p) for each mean, then average across means
+        Hs = []
+        for mean_vec in means:
+            logits = candidate @ mean_vec            # shape: (num_classes,)
+            probs = F.softmax(logits, dim=0)        # shape: (num_classes,)
+            # Shannon entropy (scalar tensor)
+            H = - (probs * (probs + eps).log()).sum()
+            Hs.append(float(H.item()))               # convert to Python float
+
+        # choose metric: mean entropy across mean vectors
+        entropy_score = float(sum(Hs) / len(Hs))
+        entropies.append(entropy_score)
+
+    # pair and sort (low entropy first)
+    paired = sorted(zip(entropies, population), key=lambda pair: pair[0])
+    entropies_sorted, population_sorted = zip(*paired)
+
+    population_sorted = list(population_sorted)
+    entropies_sorted = list(entropies_sorted)
+
+    if return_best_only:
+        return [population_sorted[0]], [entropies_sorted[0]]
+
+    return population_sorted, entropies_sorted
+
 
 def reproduce(population):
     # for i in population, plug in weights and eval accuracy using same functions
