@@ -1,12 +1,11 @@
 import torch
 import matplotlib.pyplot as plt
-import matplotlib.cm as cm
 import matplotlib.animation as animation
 from PIL import Image 
-import os
+import os, sys
 
 # path to output folder
-path="/users/jforebac/CIR/cause-tests/4class"
+path=sys.argv[2]
 
 def plot_samples(data, num_classes, samples_per_class):
     """
@@ -18,7 +17,7 @@ def plot_samples(data, num_classes, samples_per_class):
         samples_per_class (int): Number of points per class.
     """
     # Use a dynamic colormap for arbitrary number of classes
-    cmap = cm.get_cmap('tab10' if num_classes <= 10 else 'nipy_spectral', num_classes)
+    cmap = plt.get_cmap('tab10' if num_classes <= 10 else 'nipy_spectral', num_classes)
     labels = [f"Class {i}" for i in range(num_classes)]
 
     plt.figure(figsize=(10, 6))
@@ -74,7 +73,7 @@ def plot_avg_accuracy(train, test, num_classes):
 
     plt.figure(figsize=(10, 6))
 
-    cmap = cm.get_cmap('tab10' if num_classes <= 10 else 'nipy_spectral', num_classes)
+    cmap = plt.get_cmap('tab10' if num_classes <= 10 else 'nipy_spectral', num_classes)
 
     # Training accuracy
     for class_id, accuracy_list in train.items():
@@ -177,7 +176,7 @@ def plot_decision_boundaries(data, Y, classes, num_classes, weights, biases, ste
         seed (int): Seed for reproducibility.
     """
     plt.figure(figsize=(10, 6))
-    cmap = cm.get_cmap('tab10' if num_classes <= 10 else 'nipy_spectral', num_classes)
+    cmap = plt.get_cmap('tab10' if num_classes <= 10 else 'nipy_spectral', num_classes)
     x_vals = torch.linspace(data[:, 0].min() - 1, data[:, 0].max() + 1, 500)
 
     # Plot samples

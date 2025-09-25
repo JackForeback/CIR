@@ -1,15 +1,40 @@
 import torch
+import torch.nn.functional as F
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 import math as m
 from PIL import Image
-import copy
-import os
+import copy, os, argparse, sys
 
 # maxshift maxscale meanshift meanscale medianshift medianscale
+path = sys.argv[2]
 
-# path to output folder
-path="/users/jforebac/CIR/cause-tests/4class"
+def parse_sysargs():
+    """
+    Parse arguments of the form --KEY VALUE from sys.argv,
+    lowercase the keys, and inject them as variables.
+    Example: --NUM_CLASSES 3 → num_classes = 3
+    """
+    args = sys.argv[1:]  # skip script name
+    parsed = {}
+
+    for i in range(0, len(args), 2):  # step through pairs
+        key = args[i].lstrip("-")   # strip '--'
+        val = args[i+1]
+
+        # Try to convert to int or float automatically
+        if val.isdigit():
+            val = int(val)
+        else:
+            try:
+                val = float(val)
+            except ValueError:
+                pass  # leave as string
+
+        parsed[key] = val
+
+    return parsed
+
 
 
 # make sure loss between class is the same
@@ -20,6 +45,8 @@ def loss_with_per_class_gap(pred, target, lambda_fair=0.1):
     target: (N, C) one-hot labels
     """
     num_classes = target.size(1)
+
+    print("pred target",pred, target)
     
     # Standard MSE
     mse_loss = F.mse_loss(pred, target)
@@ -27,9 +54,12 @@ def loss_with_per_class_gap(pred, target, lambda_fair=0.1):
     # Per-class average MSE
     per_class_losses = []
     labels = target.argmax(dim=1)
+    print("labels", labels)
     for k in range(num_classes):
         mask = (labels == k)  # select samples of class k
+        print("mask at k", mask, k)
         if mask.any():
+            # FIXME VERIFY THIS IS SELECTING CLASSES CORRECTLY
             loss_k = F.mse_loss(pred[mask], target[mask])
             per_class_losses.append(loss_k)
         else:
@@ -37,15 +67,18 @@ def loss_with_per_class_gap(pred, target, lambda_fair=0.1):
             per_class_losses.append(torch.tensor(0.0, device=pred.device))
 
     per_class_losses = torch.stack(per_class_losses)
+
+    print("perclasslosses", per_class_losses)
     
     # Fairness penalty = gap between worst and best class
     fairness_loss = per_class_losses.max() - per_class_losses.min()
 
     # Combine
-    total_loss = mse_loss + lambda_fair * fairness_loss
+    total_loss = ((1-lambda_fair) * mse_loss) + (lambda_fair * fairness_loss)
     return total_loss, mse_loss, fairness_loss
 
 
+# FIXME VERIFY THSI ONE TOO
 # The gap in the mean softmax indicates confidence. Want even confidence in classification (good metric)
 def loss_with_soft_accuracy_gap(pred, target, lambda_fair=0.1):
     """
@@ -59,6 +92,7 @@ def loss_with_soft_accuracy_gap(pred, target, lambda_fair=0.1):
 
     # Convert to probabilities
     probs = F.softmax(pred, dim=1)
+    print("probs", probs)
     labels = target.argmax(dim=1)
 
     # Per-class mean confidence

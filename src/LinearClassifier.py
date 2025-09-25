@@ -9,12 +9,9 @@ from plotting import *
 from utils import *
 
 # Set variables & initial seed for reproducible data generation
-num_classes = 3
-num_training_steps = 50
-num_seeds = 1
-input_dim = 2
-samples_per_class = 10000
-train_ratio = 0.7
+parsed_dict = parse_sysargs()
+
+locals().update(parsed_dict)
 total_samples = samples_per_class * num_classes
 torch.manual_seed(42)
 
@@ -50,8 +47,8 @@ Y = torch.stack(Y, dim=0)
 
 
 # Determine if projection is necessary (i.e., not already ETF)
-pcl = False
-sag = False
+per_class_gap = True
+soft_accuracy_gap = False
 apply_projection = False
 # not is_regular_polygon(means)
 ref = 'median' # ref_mode (str): 'mean', 'median', or 'max'
@@ -114,10 +111,10 @@ for seed in range(num_seeds):
 
         # make predictions, compute gradients
         y_pred = model(X_train)
-        if pcl:
-            total_loss, mse_loss, fairness_loss = loss_with_per_class_gap(y_pred, Y_train)
-        elif sag:
-            total_loss, mse_loss, fairness_loss = loss_with_soft_accuracy_gap(y_pred, Y_train)
+        if per_class_gap:
+            total_loss, mse_loss, fairness_loss = loss_with_per_class_gap(y_pred, Y_train, decay)
+        elif soft_accuracy_gap:
+            total_loss, mse_loss, fairness_loss = loss_with_soft_accuracy_gap(y_pred, Y_train, decay)
         else:
             total_loss = criterion(y_pred, Y_train)
         
