@@ -39,7 +39,6 @@ def parse_sysargs():
     return parsed
 
 
-
 # make sure loss between class is the same
 # (not what we want? Might need larger gradients to even out initialization differences)
 def loss_with_per_class_gap(pred, target, lambda_fair=0.1):
@@ -122,22 +121,44 @@ def loss_with_soft_accuracy_gap(pred, target, lambda_fair=0.1):
 
 
 def evo_weights(num_iter, pop_size, weights, means):
-    pop = generate_population(weights, pop_size)
-    for _ in range(num_iter):
-        population_sorted, entropy_sorted = eval_pop(means, pop)
+    for iter in range(num_iter):
+        winners = []
+        num_groups = pop_size // 100
+        pop = manage_population(weights, pop_size, num_groups, iter)
+        #pop now sorted
+        for j in range(num_groups):
+            population_sorted, entropy_sorted = eval_pop(means, pop)
+            winners.append([population_sorted[0]])
+        pop = copy.deepcopy(winners)
         # reproduce()
-    return population_sorted[0].clone()
+    pop, entropy_sorted = eval_pop(means, pop)
+    return pop[0].clone()
 
 
-def generate_population(weights, pop_size):
-    population = []
-    population.append(weights)
-    for i in range(pop_size):
-        torch.manual_seed(i)
-        model = LinearClassifier(2, 3)
-        population.append(model.linear.weight.data)
-        # population.append(mutate(weights))
-    return population
+def manage_population(weights, pop_size, groups, iter=0):
+    if not iter:
+        population = [[] * groups]
+        for i in range(pop_size):
+            torch.manual_seed(i)
+            model = LinearClassifier(2, 3)
+            population[i % groups].append(model.linear.weight.data)
+            # population.append(mutate(weights))
+        return population
+    else:
+        # massive problems this is so confusing i should just design a repeatable loop that is clear
+        for i in range(pop_size-groups):
+            x = torch.randint(1)
+            torch.manual_seed(i)
+            model = LinearClassifier(2, 3)
+            if x > 0.1:
+                weights[i % groups].append(model.linear.weight.data)
+            else:
+                weights[i % groups].append(mutate(weights[i%groups][0]))
+
+        return weights
+
+
+
 
 def mutate(population):
     # randomly mutate an entry with probability 1/6 (inject random noise)
