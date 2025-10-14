@@ -1,0 +1,5 @@
+input_dim: 2
+num_classes: 3
+lr: 0.01
+epochs: 20
+

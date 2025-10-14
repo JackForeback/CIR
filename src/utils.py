@@ -158,8 +158,6 @@ def manage_population(weights, pop_size, groups, iter=0):
         return weights
 
 
-
-
 def mutate(population):
     # randomly mutate an entry with probability 1/6 (inject random noise)
     for i in population:
