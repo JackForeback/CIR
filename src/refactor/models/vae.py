@@ -52,7 +52,7 @@ class Encoder(nn.Module):
 
 
 class Decoder(nn.Module):
-    def __init__(self, latent_dim, hidden_layer_sizes, output_dim, activation="leakyrelu"):
+    def __init__(self, latent_dim, hidden_layer_sizes, output_dim, activation="relu"):
         """
         Build a flexible MLP decoder that maps latent → reconstructed output.
         """
@@ -101,13 +101,25 @@ class VAE(nn.Module):
         std = torch.exp(0.5 * log_var)
         eps = torch.randn_like(std)
         return mu + eps * std
+    
+    def get_kl_loss(self, mu, log_var, reduction='batchmean'):
+        # computes kl_loss. defaults for mse is mean, which equals batchmean
+        kl = -0.5 * (1 + log_var - mu.pow(2) - log_var.exp())
+        if reduction == "sum":
+            return kl.sum()
+        elif reduction == "mean":
+            return kl.mean()  # average over batch and latent dims
+        elif reduction == "batchmean":
+            return kl.sum() / mu.size(0)  # average per sample
+        else:
+            return kl
 
-    def forward(self, x):
-        mean, log_var = self.encoder(x)
+    def forward(self, x, kl):
+        mu, log_var = self.encoder(x)
         z = self.reparameterize(mu, log_var)
         x_hat = self.decoder(z)
 
         # KL divergence loss
-        kl_loss = -0.5 * torch.sum(1 + log_var - mean.pow(2) - log_var.exp())
+        kl_loss = self.get_kl_loss(mu, log_var, kl)
 
-        return x_hat, kl_loss, mean, log_var
+        return x_hat, kl_loss, mu, log_var

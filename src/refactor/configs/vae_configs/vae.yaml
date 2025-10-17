@@ -1,7 +1,17 @@
+# configs/vae.yaml
+experiment: vae
 input_dim: 784
 latent_dim: 16
-hidden_dim: 256
+encoder_layers: [128]
+decoder_layers: [128]
+optimizer: SGD
+activation: relu
+loss_function: mse
+lr: 0.001
+epochs: 1
 kl_weight: 0.001
-lr: 1e-3
-epochs: 10
+save_dir: /mnt/home/forebacj/CIR/src/refactor/runs/vae_test
 
+
+# paths
+log_dir: /mnt/home/forebacj/CIR/src/refactor/logs/vae_experiment

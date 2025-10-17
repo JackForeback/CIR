@@ -9,7 +9,7 @@
 #SBATCH --mail-user=forebacj@mail.gvsu.edu
 ##SBATCH --mail-type=end,fail
 
-source /mnt/home/forebacj/CIR/venv/bin/activate
+source /mnt/projects/debruinz_project/pytorch-nightly-env
 
 # --- just set variables here ---
 PATH_ARG="/mnt/home/forebacj/CIR/perclass"

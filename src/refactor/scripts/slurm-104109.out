@@ -1,0 +1,6 @@
+/var/spool/slurm/d/job104109/slurm_script: line 10: source: /mnt/projects/debruinz_project/pytorch-nightly-env: is a directory
+Traceback (most recent call last):
+  File "/mnt/home/forebacj/CIR/src/refactor/scripts/train.py", line 2, in <module>
+    from utils.cli import parse_args, load_config
+ModuleNotFoundError: No module named 'utils'
+/var/spool/slurm/d/job104109/slurm_script: line 15: deactivate: command not found

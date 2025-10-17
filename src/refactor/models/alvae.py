@@ -52,7 +52,7 @@ class ALEncoder(nn.Module):
 
 
 class ALDecoder(nn.Module):
-    def __init__(self, latent_dim, hidden_layer_sizes, output_dim, activation="leakyrelu"):
+    def __init__(self, latent_dim, hidden_layer_sizes, output_dim, activation="relu"):
         """
         Build a flexible MLP decoder that maps latent → reconstructed output.
         """
@@ -77,6 +77,8 @@ class ALDecoder(nn.Module):
             return nn.LeakyReLU(0.2)
         elif name == "gelu":
             return nn.GELU()
+        elif name == "sigmoid":
+            return nn.Sigmoid()
         else:
             raise ValueError(f"Unsupported activation '{name}'")
 
@@ -99,10 +101,25 @@ class ALVAE(nn.Module):
         std = torch.exp(0.5 * log_var)
         eps = torch.randn_like(std)
         return mu + eps * std
+    
+    def get_kl_loss(self, mu, log_var, reduction='batchmean'):
+        # computes kl_loss. defaults for mse is mean, which equals batchmean
+        kl = -0.5 * (1 + log_var - mu.pow(2) - log_var.exp())
+        if reduction == "sum":
+            return kl.sum()
+        elif reduction == "mean":
+            return kl.mean()  # average over batch and latent dims
+        elif reduction == "batchmean":
+            return kl.sum() / mu.size(0)  # average per sample
+        else:
+            return kl
 
-    def forward(self, x):
+    def forward(self, x, kl):
         mu, log_var = self.encoder(x)
         z = self.reparameterize(mu, log_var)
         x_hat = self.decoder(z)
-        return x_hat, mu, log_var
 
+        # KL divergence loss
+        kl_loss = self.get_kl_loss(mu, log_var, kl)
+
+        return x_hat, kl_loss, mu, log_var

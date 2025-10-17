@@ -5,7 +5,6 @@ from experiments.registry import EXPERIMENTS
 
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--experiment", required=True, help="Experiment name (linear, vae, ...)")
     parser.add_argument("--config", required=True, help="Path to YAML config")
     parser.add_argument("--override", nargs="*", default=[], help="Key=Value overrides")
     return parser.parse_args()
