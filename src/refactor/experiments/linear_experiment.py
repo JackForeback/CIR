@@ -1,9 +1,10 @@
 # experiments/linear_experiment.py
 import torch
+import copy
 from torch.utils.data import DataLoader, TensorDataset
-from experiments.base_experiment import BaseExperiment
-from models.linear_classifier import LinearClassifier
-from utils.functions import *
+from refactor.experiments.base_experiment import BaseExperiment
+from refactor.models.linear_classifier import LinearClassifier
+from refactor.utils.functions import *
 
 class LinearExperiment(BaseExperiment):
     def __init__(self):
@@ -14,11 +15,14 @@ class LinearExperiment(BaseExperiment):
             self.samples_per_class = self.cfg["samples_per_class"],
             self.scalars = self.cfg["scalars"],
             self.rotations = self.cfg["rotations"]
+            self.train_ratio = self.cfg["train_ratio"]
             # flags for fairness projections
             self.flags = self.cfg["flags"]
             self.apply_projection = self.cfg["apply_projection"]
             self.target = self.cfg["target"]
             self.projection_mode = self.cfg["projection_mode"]
+
+            self.means = 0
 
     def build_model(self):
         # reproducible model weight initialization
@@ -39,10 +43,10 @@ class LinearExperiment(BaseExperiment):
             if self.rotations != [0 for _ in range(self.num_classes)]:
                 means = rotate_classes(means, self.rotations)
 
+        self.means = copy.deepcopy(means)
+
         # Set covariance matrices. Establishes spread & direction of probability cluster
-        covs = [torch.tensor([[1.0, 0.0], [0.0, 1.0]]),
-                torch.tensor([[1.0, 0.0], [0.0, 1.0]]),
-                torch.tensor([[1.0, 0.0], [0.0, 1.0]])]
+        covs = [torch.eye(2) for _ in range(num_classes)]
 
         # Generate input data
         X = generate_samples(means, covs, self.num_classes, self.samples_per_class)
@@ -55,20 +59,8 @@ class LinearExperiment(BaseExperiment):
         X = torch.stack(X, dim=0)
         Y = torch.stack(Y, dim=0)
 
-
-        # Determine if projection is necessary (i.e., not already ETF)
-        per_class_gap = False
-        soft_accuracy_gap = False
-        apply_projection = False
-        # not is_regular_polygon(means)
-        ref = 'median' # ref_mode (str): 'mean', 'median', or 'max'
-        projection_mode = 'scale'  # mode (str): 'shift' or 'scale'.
-
         # Projects clusters to create ETF class means for equal convergence
-        scalars_or_shifts = transform_to_even_space(means, mode=projection_mode, ref_mode=ref)
-
-        # Print means, scalars, and covariance to output file to verify distributions used in each test
-        print(f'Means: {means} Covs: {covs} Projection ({projection_mode}): {scalars_or_shifts}')
+        scalars_or_shifts = transform_to_even_space(means, self.projection_mode, self.target)
 
         # Plot initial data
         plot_samples(X, self.num_classes, self.samples_per_class)
@@ -78,7 +70,7 @@ class LinearExperiment(BaseExperiment):
         X, Y = X[perm], Y[perm]
 
         # Slice tensors to create train test split
-        split_idx = int(train_ratio * total_samples)
+        split_idx = int(self.train_ratio * total_samples)
         X_train, Y_train = X[:split_idx], Y[:split_idx]
         X_test, Y_test = X[split_idx:], Y[split_idx:]
 
@@ -91,9 +83,9 @@ class LinearExperiment(BaseExperiment):
 
         # Dict to store average classification accuracy at each step
         train_dict, test_dict, per_seed = initialize_accuracy_tracking(num_classes, num_training_steps, num_seeds)
-        train_loader = DataLoader(TensorDataset(X_train, y_train), batch_size=32, shuffle=True)
-        val_loader = DataLoader(TensorDataset(X_val, y_val), batch_size=32)
-        return train_loader, val_loader
+        # train_loader = DataLoader(TensorDataset(X_train, Y_train), batch_size=32, shuffle=True)
+        # val_loader = DataLoader(TensorDataset(X_test, Y_test), batch_size=32)
+        return train_samples, test_samples, data_copy
 
     def compute_loss(self, batch):
         x, y = batch
@@ -103,11 +95,12 @@ class LinearExperiment(BaseExperiment):
 
     def train_epoch(self, loader):
        # Model Instantiation. Set seeds for num_seeds trials with random weights & 0 bias
-        for seed in range(num_seeds):
+        for seed in range(self.num_seeds):
             torch.manual_seed(seed)
-            model = LinearClassifier(input_dim, num_classes)
+            model = LinearClassifier(self.input_dim, self.num_classes)
 
-            model.linear.weight.data = evo_weights(num_iter=1, pop_size=100000, weights=model.linear.weight.data, means=means)
+            if self.flags["evo_weights"]:
+                model.linear.weight.data = evo_weights(num_iter=1, pop_size=100000, weights=model.linear.weight.data, means=self.means)
 
             # Loss function and optimizer
             criterion = nn.MSELoss()
@@ -119,7 +112,7 @@ class LinearExperiment(BaseExperiment):
             for step in range(num_training_steps):
                 decay = 1 - previous_avg_percent_correct
 
-                if apply_projection:
+                if self.apply_projection:
                     if projection_mode == 'scale' or projection_mode == 'norm':
                         scale_samples(X, Y, scalars_or_shifts, decay)
                         projected_means = means * scalars_or_shifts[:, None]  # (num_classes, 2)
