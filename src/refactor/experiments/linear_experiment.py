@@ -10,13 +10,19 @@ class LinearExperiment(BaseExperiment):
             super().__init__()  # Call the parent's __init__
             self.input_dim = self.cfg["input_dim"],
             self.num_classes = self.cfg["num_classes"],
-            self.covs = self.cfg["num_classes"],
-            self.samples_per_class = self.cfg["samples_per_class"]
-            # flags for fairness prokjections and stuff need key and dict somewhere else
+            self.radius = self.cfg["radius"],
+            self.samples_per_class = self.cfg["samples_per_class"],
+            self.scalars = self.cfg["scalars"],
+            self.rotations = self.cfg["rotations"]
+            # flags for fairness projections
             self.flags = self.cfg["flags"]
-            self.means = make_evenly_spaced_targets(self.num_classes, self.radius)
+            self.apply_projection = self.cfg["apply_projection"]
+            self.target = self.cfg["target"]
+            self.projection_mode = self.cfg["projection_mode"]
 
     def build_model(self):
+        # reproducible model weight initialization
+        torch.manual_seed(42)
         return LinearClassifier(
             input_dim=self.input_dim,
             num_classes=self.num_classes,
@@ -24,7 +30,27 @@ class LinearExperiment(BaseExperiment):
 
     def get_dataloaders(self):
 
+        means = make_evenly_spaced_targets(self.num_classes, self.radius)
+
+        for i in range(self.num_classes):
+            means[i] *= self.scalars[i]
+            # FIXME make function
+            # if need to rotate, then rotate
+            if self.rotations != [0 for _ in range(self.num_classes)]:
+                means = rotate_classes(means, self.rotations)
+
+        # Set covariance matrices. Establishes spread & direction of probability cluster
+        covs = [torch.tensor([[1.0, 0.0], [0.0, 1.0]]),
+                torch.tensor([[1.0, 0.0], [0.0, 1.0]]),
+                torch.tensor([[1.0, 0.0], [0.0, 1.0]])]
+
+        # Generate input data
+        X = generate_samples(means, covs, self.num_classes, self.samples_per_class)
+
+        # Create corresponding one hot encoding class labels
         classes = [c for c in torch.eye(self.num_classes)]
+        Y = create_labels(self.num_classes, self.samples_per_class, classes)
+                    
         # Combine to single tensors
         X = torch.stack(X, dim=0)
         Y = torch.stack(Y, dim=0)
@@ -45,7 +71,7 @@ class LinearExperiment(BaseExperiment):
         print(f'Means: {means} Covs: {covs} Projection ({projection_mode}): {scalars_or_shifts}')
 
         # Plot initial data
-        plot_samples(X, num_classes, samples_per_class)
+        plot_samples(X, self.num_classes, self.samples_per_class)
 
         # Shuffle the data, maintains correct labels
         perm = torch.randperm(X.size(0))

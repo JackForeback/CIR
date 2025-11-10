@@ -38,6 +38,19 @@ def parse_sysargs():
 
     return parsed
 
+# make sure loss between class is the same
+# (not what we want? Might need larger gradients to even out initialization differences)
+def rotate_class(means, rotations):
+    """
+    Rotate the means by the degrees given in corresponding rotations list entry
+    """
+    for i in range(len(means)):
+        rotation_matrix = torch.tensor([ [ m.cos(m.radians(rotations[i])), -m.sin(m.radians(rotations[i])) ],
+                                         [ m.sin(m.radians(rotations[i])),  m.cos(m.radians(rotations[i])) ] ])
+        means[i] = rotation_matrix @ means[i]
+
+    return means
+
 
 # make sure loss between class is the same
 # (not what we want? Might need larger gradients to even out initialization differences)

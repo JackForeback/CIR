@@ -4,9 +4,6 @@ import torch.nn as nn
 from abc import ABC, abstractmethod
 
 
-# FIXME MAYBE MAKE THESE ALL ABSTRATC METHODS SO THAT THEY HAVE TO BE DEFINED FOR EACH THING SPECIFICALLY.
-# FIXME KEEP OPTIMS AND STUFF BECAUSE YOU CAN JUST SET THOSE FROM CONFIG.
-
 class BaseExperiment(ABC):
     def __init__(self, cfg, logger):
         self.cfg = cfg
@@ -18,32 +15,32 @@ class BaseExperiment(ABC):
         self.history = {"train_loss": [], "val_loss": []}
 
     @abstractmethod
-    def build_model(self):
+    def build_model(self, *args, **kwargs):
         """Return the PyTorch model instance."""
         pass
 
     @abstractmethod
-    def get_dataloaders(self):
+    def get_dataloaders(self, *args, **kwargs):
         """Return train_loader, val_loader."""
         pass
 
     @abstractmethod
-    def compute_loss(self, batch):
+    def compute_loss(self, *args, **kwargs):
         """Define how to compute loss from a batch."""
         pass
 
     @abstractmethod
-    def train_epoch(self, loader):
+    def train_epoch(self, *args, **kwargs):
         """Define a train epoch for your model."""
         pass
 
     @abstractmethod
-    def validate_epoch(self, loader):
+    def validate_epoch(self, *args, **kwargs):
         """Define a validation epoch for your model."""
         pass
 
     @abstractmethod
-    def on_run_end(self):
+    def on_run_end(self, *args, **kwargs):
         """Define any steps occuring after main training loops if necessary."""
         pass
 
