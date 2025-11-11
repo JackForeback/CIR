@@ -120,10 +120,13 @@ def loss_with_soft_accuracy_gap(pred, target, lambda_fair=0.1):
     return total_loss, mse_loss, fairness_loss
 
 
-def evo_weights(num_iter, pop_size, weights, means):
+def evo_weights(num_iter, pop_size, tournament_size, weights, means):
+    num_groups = pop_size / tournament_size
+    if (isinstance(num_groups, float)):
+        print("pop size must be divisible by tournament size")
+        exit(-1)
     for iter in range(num_iter):
         winners = []
-        num_groups = pop_size // 100
         pop = manage_population(weights, pop_size, num_groups, iter)
         #pop now sorted
         for j in range(num_groups):
@@ -135,36 +138,37 @@ def evo_weights(num_iter, pop_size, weights, means):
     return pop[0].clone()
 
 
-def manage_population(weights, pop_size, groups, iter=0):
+def manage_population(weights, pop_size, num_groups, iter=0):
     if not iter:
-        population = [[] * groups]
+        population = [[] for _ in range(num_groups)]
         for i in range(pop_size):
             torch.manual_seed(i)
             model = LinearClassifier(2, 3)
-            population[i % groups].append(model.linear.weight.data)
+            population[i % num_groups].append(mutate(model.linear.weight.data, i))
             # population.append(mutate(weights))
         return population
     else:
         # massive problems this is so confusing i should just design a repeatable loop that is clear
-        for i in range(pop_size-groups):
+        for i in range(pop_size-num_groups):
             x = torch.randint(1)
             torch.manual_seed(i)
             model = LinearClassifier(2, 3)
             if x > 0.1:
-                weights[i % groups].append(model.linear.weight.data)
+                weights[i % num_groups].append(model.linear.weight.data)
             else:
-                weights[i % groups].append(mutate(weights[i%groups][0]))
+                weights[i % num_groups].append(mutate(weights[i%num_groups][0]))
 
         return weights
 
 
-def mutate(population):
+def mutate(weights):
     # randomly mutate an entry with probability 1/6 (inject random noise)
-    for i in population:
+    for i in weights:
         for j in i:
             x = torch.randint(0, 6)
             if not x:
                 j += torch.randn(1)[0]
+    return weights
 
 
 # minimize entropy. Take the means, put them into weights matrices.
@@ -281,7 +285,7 @@ def reproduce(population):
 
     # torunament selectiom, divide into maybe 10
     # choose k (the tournament size) individuals from the population at random
-    # choose the best individual from the tournament with probability p
+    # choose the best individual from the tournament with probability p=.75
     # choose the second best individual with probability p*(1-p)
     # choose the third best individual with probability p*((1-p)^2)
     # and so on

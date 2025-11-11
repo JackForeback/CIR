@@ -16,13 +16,12 @@ class LinearExperiment(BaseExperiment):
             self.scalars = self.cfg["scalars"],
             self.rotations = self.cfg["rotations"]
             self.train_ratio = self.cfg["train_ratio"]
+            self.total_samples = self.num_classes * self.samples_per_class
             # flags for fairness projections
             self.flags = self.cfg["flags"]
             self.apply_projection = self.cfg["apply_projection"]
             self.target = self.cfg["target"]
             self.projection_mode = self.cfg["projection_mode"]
-
-            self.means = 0
 
     def build_model(self):
         # reproducible model weight initialization
@@ -43,10 +42,8 @@ class LinearExperiment(BaseExperiment):
             if self.rotations != [0 for _ in range(self.num_classes)]:
                 means = rotate_classes(means, self.rotations)
 
-        self.means = copy.deepcopy(means)
-
         # Set covariance matrices. Establishes spread & direction of probability cluster
-        covs = [torch.eye(2) for _ in range(num_classes)]
+        covs = [torch.eye(2) for _ in range(self.num_classes)]
 
         # Generate input data
         X = generate_samples(means, covs, self.num_classes, self.samples_per_class)
@@ -69,8 +66,20 @@ class LinearExperiment(BaseExperiment):
         perm = torch.randperm(X.size(0))
         X, Y = X[perm], Y[perm]
 
+        return X, Y, means, classes
+
+    def compute_loss(self, batch):
+        x, y = batch
+        x, y = x.to(self.device), y.to(self.device)
+        preds = self.model(x)
+        return torch.nn.functional.mse(preds, y)
+
+    def train_epoch(self, loader):
+
+        X, Y, means, classes = get_dataloaders()
+
         # Slice tensors to create train test split
-        split_idx = int(self.train_ratio * total_samples)
+        split_idx = int(self.train_ratio * self.total_samples)
         X_train, Y_train = X[:split_idx], Y[:split_idx]
         X_test, Y_test = X[split_idx:], Y[split_idx:]
 
@@ -83,17 +92,7 @@ class LinearExperiment(BaseExperiment):
 
         # Dict to store average classification accuracy at each step
         train_dict, test_dict, per_seed = initialize_accuracy_tracking(num_classes, num_training_steps, num_seeds)
-        # train_loader = DataLoader(TensorDataset(X_train, Y_train), batch_size=32, shuffle=True)
-        # val_loader = DataLoader(TensorDataset(X_test, Y_test), batch_size=32)
-        return train_samples, test_samples, data_copy
 
-    def compute_loss(self, batch):
-        x, y = batch
-        x, y = x.to(self.device), y.to(self.device)
-        preds = self.model(x)
-        return torch.nn.functional.mse(preds, y)
-
-    def train_epoch(self, loader):
        # Model Instantiation. Set seeds for num_seeds trials with random weights & 0 bias
         for seed in range(self.num_seeds):
             torch.manual_seed(seed)
@@ -109,14 +108,14 @@ class LinearExperiment(BaseExperiment):
             previous_avg_percent_correct = 0
 
             # Training loop
-            for step in range(num_training_steps):
+            for step in range(self.num_training_steps):
                 decay = 1 - previous_avg_percent_correct
 
                 if self.apply_projection:
-                    if projection_mode == 'scale' or projection_mode == 'norm':
+                    if self.projection_mode == 'scale' or self.projection_mode == 'norm':
                         scale_samples(X, Y, scalars_or_shifts, decay)
                         projected_means = means * scalars_or_shifts[:, None]  # (num_classes, 2)
-                    elif projection_mode == 'shift':
+                    elif self.projection_mode == 'shift':
                         shift_samples(X, Y, scalars_or_shifts, decay)
                         projected_means = means + scalars_or_shifts  # or scalars_or_shifts directly
                     
@@ -125,9 +124,9 @@ class LinearExperiment(BaseExperiment):
 
                 # make predictions, compute gradients
                 y_pred = model(X_train)
-                if per_class_gap:
+                if self.flags["per_class_gap"]:
                     total_loss, mse_loss, fairness_loss = loss_with_per_class_gap(y_pred, Y_train, decay)
-                elif soft_accuracy_gap:
+                elif self.flags["soft_accuracy_gap"]:
                     total_loss, mse_loss, fairness_loss = loss_with_soft_accuracy_gap(y_pred, Y_train, decay)
                 else:
                     total_loss = criterion(y_pred, Y_train)
@@ -171,4 +170,5 @@ class LinearExperiment(BaseExperiment):
         # call function to plot average and per seed accuracy
         plot_avg_accuracy(train_dict, test_dict, num_classes)
         seed_plot(per_seed, num_seeds, num_training_steps)
+
         return 0
