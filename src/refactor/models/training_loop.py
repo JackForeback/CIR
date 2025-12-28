@@ -4,9 +4,8 @@ import torch.optim as optim
 import math as m
 import copy
 
-from models import LinearClassifier
-from plotting import *
-from utils import *
+import models.linear_classifier
+import utils.functions
 
 # Set variables & initial seed for reproducible data generation
 parsed_dict = parse_sysargs()

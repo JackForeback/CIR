@@ -12,7 +12,7 @@ radius: 10
 scalars: [1,1,1]
 rotations: [0,0,0]
 
-save_dir: runs/vae_test
+save_dir: runs/linear_test
 
 # Fairness methods
 flags:
@@ -27,4 +27,4 @@ target: max             # target (str): 'mean', 'median', or 'max'
 projection_mode: shift  # mode (str): 'shift' or 'scale'
 
 # paths
-log_dir: /mnt/home/forebacj/CIR/logs/vae_experiment
+log_dir: /mnt/home/forebacj/CIR/logs/linear_experiment
