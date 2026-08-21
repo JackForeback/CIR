@@ -1,0 +1,11 @@
+# Shared by original/ and refactor/. CPU wheels are enough for everything here:
+#   pip install --index-url https://download.pytorch.org/whl/cpu torch torchvision
+#   pip install -r requirements.txt
+torch>=2.0
+torchvision>=0.15
+numpy>=1.24
+scipy>=1.10
+matplotlib>=3.7
+pillow>=9.0
+pyyaml>=6.0
+pytest>=7.0

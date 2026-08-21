@@ -1,0 +1,36 @@
+# ALVAE: VAE plus a fixed-basis residual penalty.
+#   python -m cir.train --config configs/alvae.yaml
+experiment: alvae
+
+# --- architecture ------------------------------------------------------------
+input_dim: 784
+latent_dim: 16
+encoder_layers: [128]
+decoder_layers: [128]
+activation: relu
+
+# --- the added loss ----------------------------------------------------------
+basis: dct                # dct | chebyshev
+num_basis: 196            # basis functions kept; fewer = stronger constraint
+orthonormalize: true      # required for the round trip to be a true projection
+aux_weight: 0.01
+
+# --- optimization ------------------------------------------------------------
+optimizer: adam
+lr: 0.001
+loss_function: mse
+epochs: 5
+batch_size: 64
+kl_weight: 0.001
+kl_reduction: batchmean
+seed: 42
+device: auto
+
+# --- data --------------------------------------------------------------------
+download: false
+num_workers: 0
+
+# --- output ------------------------------------------------------------------
+output_dir: runs/alvae
+log_dir: runs/alvae
+log_every: 100

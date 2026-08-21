@@ -1,0 +1,43 @@
+# Linear-classifier fairness experiment.
+#   python -m cir.train --config configs/linear.yaml
+experiment: linear
+
+# --- data geometry -----------------------------------------------------------
+input_dim: 2              # must be 2; the plots are 2D
+num_classes: 3
+samples_per_class: 10000
+radius: 10                # radius of the undistorted ETF
+scalars: [1, 2, 1]        # per-class radial scale — class 1 is pushed out,
+rotations: [0, 0, 0]      # per-class rotation in degrees, which breaks the ETF
+train_ratio: 0.7
+
+# --- optimization ------------------------------------------------------------
+optimizer: sgd
+lr: 0.01
+loss_function: mse
+num_training_steps: 50
+num_seeds: 10
+seed: 42                  # seeds data generation; models use seeds 0..num_seeds-1
+device: auto
+
+# --- intervention 1: project the data back onto the ETF -----------------------
+apply_projection: false
+projection_mode: scale    # shift | scale | norm
+target: median            # reference norm: mean | median | max
+
+# --- interventions 2 and 3 ---------------------------------------------------
+flags:
+  fairness_loss: null     # per_class_gap | soft_accuracy_gap | null
+  evo_weights: false      # evolutionary weight initialization
+  plot_boundaries: false  # save a frame per step and build a GIF (slow)
+
+evo:
+  num_iter: 1
+  pop_size: 1000          # must be a multiple of tournament_size
+  tournament_size: 100
+  seed: 0
+
+# --- output ------------------------------------------------------------------
+output_dir: runs/linear
+log_dir: runs/linear
+log_every: 0

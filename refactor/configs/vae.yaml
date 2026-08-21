@@ -1,0 +1,31 @@
+# VAE reconstruction on MNIST.
+#   python -m cir.train --config configs/vae.yaml
+experiment: vae
+
+# --- architecture ------------------------------------------------------------
+input_dim: 784            # 28 x 28, flattened
+latent_dim: 16
+encoder_layers: [128]
+decoder_layers: [128]
+activation: relu
+
+# --- optimization ------------------------------------------------------------
+optimizer: adam
+lr: 0.001
+loss_function: mse
+epochs: 5
+batch_size: 64
+kl_weight: 0.001
+kl_reduction: batchmean   # sum | mean | batchmean | none
+seed: 42
+device: auto
+
+# --- data --------------------------------------------------------------------
+# data_root defaults to the repository's data/ directory
+download: false           # MNIST is committed; fail loudly rather than fetch
+num_workers: 0
+
+# --- output ------------------------------------------------------------------
+output_dir: runs/vae
+log_dir: runs/vae
+log_every: 100
