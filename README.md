@@ -157,21 +157,4 @@ reach. Pick a variant with `variant:`:
    experiment without a config fails the test suite.
 4. Add a case to `scripts/smoke.sh`.
 
-Keep configuration in YAML rather than in Python, and keep paths relative to the
-repository — no absolute `/mnt/home/...` paths, which is what tied an earlier
-version to one user's cluster account.
-
-## History
-
-This repository used to hold two parallel trees: a script-driven `original/` and
-a config-driven `refactor/`. The refactor is complete and is now the repository
-itself; `original/` has been removed. Everything it did lives here, including
-the bug fixes it needed to run at all — the ETF vertex ordering, the
-least-squares solver's residual frame, the evolutionary-initialization chain —
-and the alternating-decoder variants it sketched, now in
-`cir/models/alternating.py`.
-
-## Repository docs
-
-- [`CLAUDE.md`](CLAUDE.md) — working rules for AI assistants in this repo.
-- [`PROGRESS.md`](PROGRESS.md) — status and handoff notes.
+Keep configuration in YAML rather than in Python, and keep paths relative to the repo.
