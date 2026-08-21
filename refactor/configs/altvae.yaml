@@ -1,0 +1,42 @@
+# Alternating-decoder VAE: a second, purely linear decode path alongside the
+# learned one. Reproduces the original FOLVAE / LAVAE / ALVAE sketches.
+#   python -m cir.train --config configs/altvae.yaml
+#   python -m cir.train --config configs/altvae.yaml --override variant=folvae
+experiment: altvae
+
+# --- architecture ------------------------------------------------------------
+input_dim: 784
+latent_dim: 16
+encoder_layers: [128]
+decoder_layers: [128]
+activation: relu
+
+# --- the linear path ---------------------------------------------------------
+# lavae      : alternate paths, both learned (the baseline)
+# folvae     : alternate paths, the linear path's output layer frozen
+# added_loss : always decode nonlinearly, penalize the gap to the linear path
+variant: lavae
+linear_layers: [128]      # hidden widths of the linear path; no activations
+alternate_every: 2        # use the linear path on every n-th training step
+aux_weight: 0.01          # weight on the added-loss term (added_loss only)
+
+# --- optimization ------------------------------------------------------------
+optimizer: adam
+lr: 0.001
+loss_function: mse
+epochs: 5
+batch_size: 64
+kl_weight: 0.001
+kl_reduction: batchmean
+seed: 42
+device: auto
+
+# --- data --------------------------------------------------------------------
+download: false
+num_workers: 0
+# train_subset / test_subset cap the number of examples used; unset means all.
+
+# --- output ------------------------------------------------------------------
+output_dir: runs/altvae
+log_dir: runs/altvae
+log_every: 100

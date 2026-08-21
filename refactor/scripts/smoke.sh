@@ -35,5 +35,12 @@ python -m cir.train --config configs/alvae.yaml --override \
   epochs=1 train_subset=512 test_subset=256 log_every=0 \
   "output_dir=$OUT/alvae" "log_dir=$OUT/alvae"
 
+echo "=== altvae (all three alternating variants) ==="
+for variant in lavae folvae added_loss; do
+  python -m cir.train --config configs/altvae.yaml --override \
+    "variant=$variant" epochs=1 train_subset=512 test_subset=256 log_every=0 \
+    "output_dir=$OUT/altvae_$variant" "log_dir=$OUT/altvae_$variant"
+done
+
 echo
 echo "All experiments ran. Output under $OUT/"

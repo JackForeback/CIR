@@ -1,5 +1,6 @@
 """End-to-end tests: config handling, the registry, models, and tiny runs."""
 
+import glob
 import json
 import os
 
@@ -38,17 +39,21 @@ def test_malformed_override_is_rejected():
         apply_overrides({}, ["epochs"])
 
 
-@pytest.mark.parametrize("name", ["linear", "vae", "alvae"])
-def test_shipped_configs_load_and_name_a_registered_experiment(name):
+# Derived from the registry rather than hard-coded, so registering an
+# experiment without shipping a config for it fails here.
+@pytest.mark.parametrize("name", sorted(EXPERIMENTS))
+def test_every_registered_experiment_ships_a_config(name):
     cfg = load_config(os.path.join(CONFIG_DIR, f"{name}.yaml"))
     assert cfg["experiment"] == name
     assert get_experiment(cfg["experiment"]) is EXPERIMENTS[name]
 
 
 def test_configs_contain_no_absolute_paths():
-    for name in ("linear", "vae", "alvae"):
-        raw = open(os.path.join(CONFIG_DIR, f"{name}.yaml")).read()
-        assert "/mnt/" not in raw and "/home/" not in raw
+    configs = glob.glob(os.path.join(CONFIG_DIR, "*.yaml"))
+    assert configs
+    for path in configs:
+        raw = open(path).read()
+        assert "/mnt/" not in raw and "/home/" not in raw, path
 
 
 def test_unknown_experiment_reports_what_is_registered():

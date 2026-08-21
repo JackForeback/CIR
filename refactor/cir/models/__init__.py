@@ -1,5 +1,6 @@
 """Model definitions."""
 
+from cir.models.alternating import AddedLossVAE, AlternatingVAE, FOLVAE, LAVAE
 from cir.models.alvae import ALVAE
 from cir.models.basis import BasisLinear, ChebyshevLinear, DCTLinear
 from cir.models.linear_classifier import LinearClassifier
@@ -11,6 +12,10 @@ __all__ = [
     "Encoder",
     "Decoder",
     "ALVAE",
+    "AlternatingVAE",
+    "LAVAE",
+    "FOLVAE",
+    "AddedLossVAE",
     "BasisLinear",
     "DCTLinear",
     "ChebyshevLinear",

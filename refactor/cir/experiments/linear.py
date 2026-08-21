@@ -186,8 +186,15 @@ class LinearExperiment(BaseExperiment):
         split_idx = int(self.train_ratio * self.total_samples)
         return (X[:split_idx], Y[:split_idx]), (X[split_idx:], Y[split_idx:])
 
-    def compute_loss(self, batch: Any, decay: float = 0.0) -> torch.Tensor:
-        """Loss for one full-batch step.
+    def forward_and_loss(
+        self, batch: Any, decay: float = 0.0
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
+        """Score one full batch and compute its loss in a single forward pass.
+
+        :meth:`run` needs both the predictions (to score accuracy) and the loss
+        (to step the optimizer), and they come from the same forward pass —
+        calling :meth:`compute_loss` separately would run the model twice per
+        step for identical numbers.
 
         Args:
             batch: An ``(X, Y)`` pair.
@@ -196,14 +203,26 @@ class LinearExperiment(BaseExperiment):
                 the classifier converges.
 
         Returns:
-            The scalar loss.
+            ``(predictions, loss)``.
         """
         x, y = batch
         predictions = self.model(x)
         if self.fairness_loss_name:
             total, _, _ = FAIRNESS_LOSSES[self.fairness_loss_name](predictions, y, decay)
-            return total
-        return self.loss_function(predictions, y)
+            return predictions, total
+        return predictions, self.loss_function(predictions, y)
+
+    def compute_loss(self, batch: Any, decay: float = 0.0) -> torch.Tensor:
+        """Loss for one full-batch step. See :meth:`forward_and_loss`.
+
+        Args:
+            batch: An ``(X, Y)`` pair.
+            decay: Weight on the fairness penalty when one is configured.
+
+        Returns:
+            The scalar loss.
+        """
+        return self.forward_and_loss(batch, decay)[1]
 
     # ------------------------------------------------------------------
     # Training
@@ -256,8 +275,7 @@ class LinearExperiment(BaseExperiment):
                 else:
                     x_train, x_test = clean_train, clean_test
 
-                predictions = self.model(x_train)
-                loss = self.compute_loss((x_train, Y_train), decay)
+                predictions, loss = self.forward_and_loss((x_train, Y_train), decay)
                 self.optimizer.zero_grad()
                 loss.backward()
 

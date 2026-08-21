@@ -161,7 +161,13 @@ class BaseExperiment(ABC):
         kwargs: Dict[str, Any] = {"lr": float(self.cfg.get("lr", 1e-3))}
         if name == "sgd":
             kwargs["momentum"] = float(self.cfg.get("momentum", 0.0))
-        return OPTIMIZERS[name](model.parameters(), **kwargs)
+
+        # Only parameters that can actually be updated: models such as
+        # cir.models.alternating.FOLVAE deliberately freeze part of themselves.
+        parameters = [p for p in model.parameters() if p.requires_grad]
+        if not parameters:
+            raise ValueError("model has no trainable parameters")
+        return OPTIMIZERS[name](parameters, **kwargs)
 
     def build_loss_function(self) -> nn.Module:
         """Construct the loss named by ``cfg["loss_function"]``.

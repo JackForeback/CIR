@@ -24,6 +24,7 @@ device: auto
 # data_root defaults to the repository's data/ directory
 download: false           # MNIST is committed; fail loudly rather than fetch
 num_workers: 0
+# train_subset / test_subset cap the number of examples used; unset means all.
 
 # --- output ------------------------------------------------------------------
 output_dir: runs/vae

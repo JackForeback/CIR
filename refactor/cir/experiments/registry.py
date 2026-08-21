@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from typing import Dict, Type
 
+from cir.experiments.alternating import AlternatingVAEExperiment
 from cir.experiments.alvae import ALVAEExperiment
 from cir.experiments.base import BaseExperiment
 from cir.experiments.linear import LinearExperiment
@@ -20,6 +21,7 @@ EXPERIMENTS: Dict[str, Type[BaseExperiment]] = {
     "linear": LinearExperiment,
     "vae": VAEExperiment,
     "alvae": ALVAEExperiment,
+    "altvae": AlternatingVAEExperiment,
 }
 
 

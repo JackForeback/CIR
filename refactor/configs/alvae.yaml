@@ -29,6 +29,7 @@ device: auto
 # --- data --------------------------------------------------------------------
 download: false
 num_workers: 0
+# train_subset / test_subset cap the number of examples used; unset means all.
 
 # --- output ------------------------------------------------------------------
 output_dir: runs/alvae
