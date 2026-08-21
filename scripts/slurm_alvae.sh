@@ -21,6 +21,6 @@ if [[ -n "${CIR_VENV:-}" ]]; then
   source "$CIR_VENV/bin/activate"
 fi
 
-# Run as a module so `cir` resolves from the refactor/ directory. Invoking the
-# file by path is what produced the ModuleNotFoundError in earlier job logs.
+# Run as a module so `cir` resolves from the repository root. Invoking the file
+# by path is what produced the ModuleNotFoundError in earlier job logs.
 python -m cir.train --config configs/alvae.yaml "$@"

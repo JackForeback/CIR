@@ -1,8 +1,8 @@
 """Alternating-decoder VAEs.
 
 These carry forward the three exploratory variants the pre-refactor code
-sketched (``FOLVAE``, ``LAVAE``, ``ALVAE`` in the original ``models.py``). All
-three circle one idea: give the VAE a second decode path that is *purely
+sketched — ``FOLVAE``, ``LAVAE``, and ``ALVAE``, in a ``models.py`` that no
+longer exists. All three circle one idea: give the VAE a second decode path that is *purely
 linear* — no activations anywhere — so the reconstruction it produces lives in a
 known low-dimensional subspace, something
 :func:`cir.utils.solvers.iterative_chebyshev_ls` could solve for directly

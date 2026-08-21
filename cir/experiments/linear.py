@@ -30,6 +30,7 @@ Training runs full-batch for ``num_training_steps`` steps, repeated over
 from __future__ import annotations
 
 import os
+import shutil
 from typing import Any, Dict, List, Tuple
 
 import torch
@@ -66,6 +67,7 @@ class LinearExperiment(BaseExperiment):
     ``flags.fairness_loss``     ``per_class_gap``, ``soft_accuracy_gap``, or null.
     ``flags.evo_weights``       Use the evolutionary initializer.
     ``flags.plot_boundaries``   Save a decision-boundary frame per step.
+    ``flags.keep_frames``       Keep those frames after the GIF is built.
     ==========================  =================================================
     """
 
@@ -90,6 +92,7 @@ class LinearExperiment(BaseExperiment):
 
         flags = cfg.get("flags") or {}
         self.plot_boundaries = bool(flags.get("plot_boundaries", False))
+        self.keep_frames = bool(flags.get("keep_frames", False))
         self.use_evo_weights = bool(flags.get("evo_weights", False))
         self.fairness_loss_name = flags.get("fairness_loss")
         if self.fairness_loss_name and self.fairness_loss_name not in FAIRNESS_LOSSES:
@@ -344,4 +347,8 @@ class LinearExperiment(BaseExperiment):
                 self.frame_dir,
                 os.path.join(self.output_dir, "animations"),
             )
+            # One frame per step per seed adds up fast, and they exist only to
+            # be stitched into the GIF.
+            if not self.keep_frames:
+                shutil.rmtree(self.frame_dir, ignore_errors=True)
         print(f"Figures written to {self.output_dir}")

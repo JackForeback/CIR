@@ -16,8 +16,8 @@ from torchvision import datasets, transforms
 
 __all__ = ["default_data_root", "mnist_dataloaders"]
 
-# cir/data/mnist.py -> cir/data -> cir -> refactor -> repo root
-_REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
+# cir/data/mnist.py -> cir/data -> cir -> repo root
+_REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 
 
 def default_data_root() -> str:

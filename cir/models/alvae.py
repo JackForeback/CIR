@@ -1,8 +1,8 @@
 """ALVAE — the Added-Loss Variational Autoencoder.
 
 A :class:`~cir.models.vae.VAE` carrying one extra term in its objective. The
-pre-refactor sketches (``FOLVAE``, ``LAVAE``, ``ALVAE`` in ``original/models.py``)
-all circled the same idea: hold part of the decoder *fixed* — an analytically
+pre-refactor sketches, carried forward in :mod:`cir.models.alternating`
+(``FOLVAE``, ``LAVAE``, ``AddedLossVAE``), all circled the same idea: hold part of the decoder *fixed* — an analytically
 known basis rather than learned weights — and penalize the model for the part of
 its reconstruction that the fixed basis cannot express.
 
@@ -17,7 +17,9 @@ subspace the basis describes, which is what makes them solvable by
    The *mechanism* — a fixed basis, a residual penalty, a config-driven weight —
    is what the original code specified. The precise regularizer was only ever
    sketched in comments. Override :meth:`ALVAE.auxiliary_loss` to substitute a
-   different definition; nothing else in the pipeline needs to change.
+   different definition; nothing else in the pipeline needs to change. For the
+   original's own answer — a second *learned* linear decoder rather than a
+   fixed basis — see :class:`cir.models.alternating.AddedLossVAE`.
 """
 
 from __future__ import annotations

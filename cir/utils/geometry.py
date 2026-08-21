@@ -22,6 +22,9 @@ __all__ = [
     "is_regular_polygon",
     "generate_samples",
     "create_labels",
+    "scale_samples",
+    "shift_samples",
+    "apply_projection",
 ]
 
 
@@ -265,6 +268,3 @@ def apply_projection(
     if mode == "shift":
         return shift_samples(x, y, transform, decay), means + transform
     raise ValueError(f"mode must be 'shift', 'scale', or 'norm', got {mode!r}")
-
-
-__all__ += ["scale_samples", "shift_samples", "apply_projection"]

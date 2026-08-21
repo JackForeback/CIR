@@ -186,6 +186,19 @@ def test_projection_toward_the_etf_narrows_the_class_gap(tmp_path):
     assert projected["final_gap"]["train"] <= baseline["final_gap"]["train"]
 
 
+@pytest.mark.parametrize("keep_frames", [False, True])
+def test_boundary_frames_are_cleaned_up_unless_asked_for(tmp_path, keep_frames):
+    """The frames exist only to build the GIF, and there is one per step per seed."""
+    run_from_config(
+        _linear_cfg(
+            tmp_path,
+            flags={"plot_boundaries": True, "keep_frames": keep_frames},
+        )
+    )
+    assert (tmp_path / "animations").exists()
+    assert (tmp_path / "frames").exists() is keep_frames
+
+
 def test_linear_experiment_validates_per_class_list_lengths(tmp_path):
     with pytest.raises(ValueError, match="expected 3 per-class values"):
         run_from_config(_linear_cfg(tmp_path, scalars=[1, 2]))

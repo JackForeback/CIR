@@ -1,5 +1,6 @@
 """Experiment implementations, keyed by name in :mod:`cir.experiments.registry`."""
 
+from cir.experiments.alternating import AlternatingVAEExperiment
 from cir.experiments.alvae import ALVAEExperiment
 from cir.experiments.base import BaseExperiment
 from cir.experiments.linear import LinearExperiment
@@ -11,6 +12,7 @@ __all__ = [
     "LinearExperiment",
     "VAEExperiment",
     "ALVAEExperiment",
+    "AlternatingVAEExperiment",
     "EXPERIMENTS",
     "get_experiment",
 ]

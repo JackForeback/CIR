@@ -31,6 +31,7 @@ flags:
   fairness_loss: null     # per_class_gap | soft_accuracy_gap | null
   evo_weights: false      # evolutionary weight initialization
   plot_boundaries: false  # save a frame per step and build a GIF (slow)
+  keep_frames: false      # keep the individual frames after the GIF is built
 
 evo:
   num_iter: 1
