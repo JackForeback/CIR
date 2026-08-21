@@ -158,3 +158,5 @@ reach. Pick a variant with `variant:`:
 4. Add a case to `scripts/smoke.sh`.
 
 Keep configuration in YAML rather than in Python, and keep paths relative to the repo.
+
+Disclaimer: AI was used to clean up and refactor this codebase. The older commits and content are all mine, coded manually.
